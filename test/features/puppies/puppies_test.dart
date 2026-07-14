@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
-import 'package:portea_flutter/core/data/mock_database.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_weighing_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_care_repository.dart';
