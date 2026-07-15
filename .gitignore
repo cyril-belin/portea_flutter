@@ -52,4 +52,12 @@ app.*.map.json
 # Graphify output
 /graphify-out/
 
-
+# Secrets
+**/passwords.yaml
+assets/config.json
+**/google-services.json
+**/GoogleService-Info.plist
+*.jks
+key.properties
+.env
+*.env
