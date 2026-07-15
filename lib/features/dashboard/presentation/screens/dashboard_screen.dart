@@ -40,125 +40,171 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: viewModel.loadDashboard,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 16.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 16.0,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isLarge = constraints.maxWidth > 800;
+
+                    final headerWidget = Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                kennel?.name ?? 'Mon Élevage',
+                                style: AppTextStyles.screenTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (kennel?.affix != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Affixe: ${kennel!.affix}',
+                                  style: AppTextStyles.captionLabel,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (!viewModel.isPremium)
+                          IconButton(
+                            icon: const Icon(
+                              Icons.lock_rounded,
+                              color: AppColors.premium,
+                            ),
+                            onPressed: () => context.push('/premium'),
+                          ),
+                      ],
+                    );
+
+                    final leftColumnChildren = [
+                      if (activeLitter == null)
+                        EmptyStateWidget(
+                          icon: Icons.layers_outlined,
+                          title: 'Aucune portée active',
+                          subtitle:
+                              'Déclarez votre portée ou configurez vos reproducteurs.',
+                          primaryActionLabel: 'Déclarer ma première portée',
+                          onPrimaryAction: () => context.push('/litters/new'),
+                          secondaryActionLabel: 'Ajouter mes reproducteurs d\'abord',
+                          onSecondaryAction: () => context.go('/breeders'),
+                        )
+                      else ...[
+                        Text(
+                          'Portée en cours',
+                          style: AppTextStyles.sectionTitle,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildActiveLitterCard(context, viewModel),
+                        const SizedBox(height: 24),
+
+                        // Quick Actions
+                        Text(
+                          'Accès rapides',
+                          style: AppTextStyles.sectionTitle,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildQuickActionsRow(context, activeLitter.id!),
+                        const SizedBox(height: 24),
+                      ],
+                    ];
+
+                    final rightColumnChildren = [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            kennel?.name ?? 'Mon Élevage',
-                            style: AppTextStyles.screenTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            'Prochains rappels',
+                            style: AppTextStyles.sectionTitle,
                           ),
-                          if (kennel?.affix != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              'Affixe: ${kennel!.affix}',
-                              style: AppTextStyles.captionLabel,
+                          if (viewModel.upcomingReminders.isNotEmpty)
+                            const Icon(
+                              Icons.notifications_active_rounded,
+                              color: AppColors.primary,
+                              size: 20,
                             ),
-                          ],
                         ],
                       ),
-                    ),
-                    if (!viewModel.isPremium)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.lock_rounded,
-                          color: AppColors.premium,
+                      const SizedBox(height: 8),
+                      if (viewModel.upcomingReminders.isEmpty)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  color: AppColors.statusAvailable,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Tout est à jour ! Aucun rappel à venir.',
+                                    style: AppTextStyles.body,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        ...viewModel.upcomingReminders.map(
+                          (reminder) => _buildReminderTile(context, reminder),
                         ),
-                        onPressed: () => context.push('/premium'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
+                    ];
 
-                // Active litter section
-                if (activeLitter == null)
-                  EmptyStateWidget(
-                    icon: Icons.layers_outlined,
-                    title: 'Aucune portée active',
-                    subtitle:
-                        'Déclarez votre portée ou configurez vos reproducteurs.',
-                    primaryActionLabel: 'Déclarer ma première portée',
-                    onPrimaryAction: () => context.push('/litters/new'),
-                    secondaryActionLabel: 'Ajouter mes reproducteurs d\'abord',
-                    onSecondaryAction: () => context.go('/breeders'),
-                  )
-                else ...[
-                  Text(
-                    'Portée en cours',
-                    style: AppTextStyles.sectionTitle,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildActiveLitterCard(context, viewModel),
-                  const SizedBox(height: 24),
-
-                  // Quick Actions
-                  Text(
-                    'Accès rapides',
-                    style: AppTextStyles.sectionTitle,
-                  ),
-                  const SizedBox(height: 8),
-                  _buildQuickActionsRow(context, activeLitter.id!),
-                  const SizedBox(height: 24),
-                ],
-
-                // Upcoming reminders
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Prochains rappels',
-                      style: AppTextStyles.sectionTitle,
-                    ),
-                    if (viewModel.upcomingReminders.isNotEmpty)
-                      const Icon(
-                        Icons.notifications_active_rounded,
-                        color: AppColors.primary,
-                        size: 20,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (viewModel.upcomingReminders.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
+                    if (isLarge) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: AppColors.statusAvailable,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Tout est à jour ! Aucun rappel à venir.',
-                              style: AppTextStyles.body,
-                            ),
+                          headerWidget,
+                          const SizedBox(height: 24),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 6,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: leftColumnChildren,
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                flex: 4,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: rightColumnChildren,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
-                      ),
-                    ),
-                  )
-                else
-                  ...viewModel.upcomingReminders.map(
-                    (reminder) => _buildReminderTile(context, reminder),
-                  ),
-              ],
+                      );
+                    } else {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          headerWidget,
+                          const SizedBox(height: 24),
+                          ...leftColumnChildren,
+                          ...rightColumnChildren,
+                        ],
+                      );
+                    }
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -213,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-              const Divider(height: 24, color: AppColors.border),
+              const Divider(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -262,7 +308,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.surface,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary, width: 1.5),
               elevation: 0,
@@ -276,7 +322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.surface,
+              backgroundColor: Theme.of(context).colorScheme.surface,
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary, width: 1.5),
               elevation: 0,
@@ -339,7 +385,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.border.withValues(alpha: 0.5),
+            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(

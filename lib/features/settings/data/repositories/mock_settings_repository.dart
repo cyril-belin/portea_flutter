@@ -15,4 +15,16 @@ class MockSettingsRepository implements ISettingsRepository {
     await Future.delayed(const Duration(milliseconds: 50));
     _db.premiumUser = premium;
   }
+
+  @override
+  Future<String> getThemeMode() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return _db.themeMode;
+  }
+
+  @override
+  Future<void> setThemeMode(String themeMode) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    _db.themeMode = themeMode;
+  }
 }

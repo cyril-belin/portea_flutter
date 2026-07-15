@@ -37,22 +37,49 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16.0),
-                      itemCount: viewModel.items.length,
-                      itemBuilder: (context, index) {
-                        final item = viewModel.items[index];
-                        return _buildPuppyRow(index, item, viewModel);
-                      },
-                    ),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth > 700) {
+                              return GridView.builder(
+                                padding: const EdgeInsets.all(16.0),
+                                gridDelegate:
+                                    const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 500,
+                                  mainAxisExtent: 160,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                                itemCount: viewModel.items.length,
+                                itemBuilder: (context, index) {
+                                  final item = viewModel.items[index];
+                                  return _buildPuppyRow(index, item, viewModel);
+                                },
+                              );
+                            } else {
+                              return ListView.builder(
+                                padding: const EdgeInsets.all(16.0),
+                                itemCount: viewModel.items.length,
+                                itemBuilder: (context, index) {
+                                  final item = viewModel.items[index];
+                                  return _buildPuppyRow(index, item, viewModel);
+                                },
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      _buildBottomBar(context, viewModel),
+                    ],
                   ),
-                  _buildBottomBar(context, viewModel),
-                ],
+                ),
               ),
             ),
     );
@@ -100,6 +127,11 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                             style: TextStyle(fontSize: 14),
                           ),
                           selected: item.sex == 'female',
+                          selectedColor: AppColors.female,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: item.sex == 'female' ? Colors.white : null,
+                          ),
                           onSelected: (selected) {
                             if (selected) vm.updateSex(index, 'female');
                           },
@@ -114,6 +146,11 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                             style: TextStyle(fontSize: 14),
                           ),
                           selected: item.sex == 'male',
+                          selectedColor: AppColors.male,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: item.sex == 'male' ? Colors.white : null,
+                          ),
                           onSelected: (selected) {
                             if (selected) vm.updateSex(index, 'male');
                           },
@@ -180,9 +217,9 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
   Widget _buildBottomBar(BuildContext context, PuppyBatchViewModel vm) {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

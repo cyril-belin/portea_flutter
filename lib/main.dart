@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
@@ -247,13 +248,13 @@ void main() async {
           create: (context) => SettingsViewModel(
             kennelRepository: context.read<IKennelRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
-          ),
+          )..loadSettings(),
           update: (context, kennel, settings, prev) =>
               prev ??
               SettingsViewModel(
                 kennelRepository: kennel,
                 settingsRepository: settings,
-              ),
+              )..loadSettings(),
         ),
       ],
       child: const MyApp(),
@@ -261,18 +262,33 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
     final onboardingVM = context.read<OnboardingViewModel>();
-    final router = createRouter(onboardingVM);
+    _router = createRouter(onboardingVM);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsVM = context.watch<SettingsViewModel>();
 
     return MaterialApp.router(
-      routerConfig: router,
+      routerConfig: _router,
       title: 'Portea',
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: settingsVM.themeMode,
       debugShowCheckedModeBanner: false,
     );
   }

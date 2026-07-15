@@ -43,82 +43,117 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: viewModel.loadLitters,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Active litter card (if any)
-                    if (viewModel.activeLitter != null) ...[
-                      Text('Portée active', style: AppTextStyles.sectionTitle),
-                      const SizedBox(height: 8),
-                      _buildActiveLitterCard(context, viewModel.activeLitter!),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // History list
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1100),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Historique', style: AppTextStyles.sectionTitle),
-                        if (!viewModel.isPremium)
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.lock_rounded,
-                                color: AppColors.premium,
-                                size: 16,
+                        // Active litter card (if any)
+                        if (viewModel.activeLitter != null) ...[
+                          Text('Portée active', style: AppTextStyles.sectionTitle),
+                          const SizedBox(height: 8),
+                          _buildActiveLitterCard(context, viewModel.activeLitter!),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // History list
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Historique', style: AppTextStyles.sectionTitle),
+                            if (!viewModel.isPremium)
+                              const Row(
+                                children: [
+                                  Icon(
+                                    Icons.lock_rounded,
+                                    color: AppColors.premium,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Premium',
+                                    style: TextStyle(
+                                      color: AppColors.premium,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Premium',
-                                style: TextStyle(
-                                  color: AppColors.premium,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        if (viewModel.pastLitters.isEmpty &&
+                            viewModel.activeLitter == null)
+                          EmptyStateWidget(
+                            icon: Icons.folder_open_rounded,
+                            title: 'Aucune portée enregistrée',
+                            subtitle:
+                                'Commencez par déclarer une portée de chiots.',
+                            primaryActionLabel: 'Déclarer une portée',
+                            onPrimaryAction: () =>
+                                _onDeclarePress(context, viewModel),
+                          )
+                        else if (viewModel.pastLitters.isEmpty)
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Text(
+                                'Pas d\'anciennes portées dans l\'historique.',
+                                style: AppTextStyles.captionLabel,
+                                textAlign: TextAlign.center,
                               ),
-                            ],
+                            ),
+                          )
+                        else
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              if (constraints.maxWidth > 650) {
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 450,
+                                    mainAxisExtent: 88,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 8,
+                                  ),
+                                  itemCount: viewModel.pastLitters.length,
+                                  itemBuilder: (context, index) {
+                                    final litter = viewModel.pastLitters[index];
+                                    return _buildHistoryLitterCard(
+                                      context,
+                                      litter,
+                                      viewModel.isPremium,
+                                    );
+                                  },
+                                );
+                              } else {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: viewModel.pastLitters.map(
+                                    (litter) => _buildHistoryLitterCard(
+                                      context,
+                                      litter,
+                                      viewModel.isPremium,
+                                    ),
+                                  ).toList(),
+                                );
+                              }
+                            },
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-
-                    if (viewModel.pastLitters.isEmpty &&
-                        viewModel.activeLitter == null)
-                      EmptyStateWidget(
-                        icon: Icons.folder_open_rounded,
-                        title: 'Aucune portée enregistrée',
-                        subtitle:
-                            'Commencez par déclarer une portée de chiots.',
-                        primaryActionLabel: 'Déclarer une portée',
-                        onPrimaryAction: () =>
-                            _onDeclarePress(context, viewModel),
-                      )
-                    else if (viewModel.pastLitters.isEmpty)
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Text(
-                            'Pas d\'anciennes portées dans l\'historique.',
-                            style: AppTextStyles.captionLabel,
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      )
-                    else
-                      ...viewModel.pastLitters.map(
-                        (litter) => _buildHistoryLitterCard(
-                          context,
-                          litter,
-                          viewModel.isPremium,
-                        ),
-                      ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -145,7 +180,9 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           vertical: 12,
         ),
         leading: CircleAvatar(
-          backgroundColor: AppColors.primaryLight,
+          backgroundColor: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.primaryDark.withValues(alpha: 0.25)
+              : AppColors.primaryLight,
           child: const Icon(
             Icons.child_friendly_rounded,
             color: AppColors.primary,
@@ -159,9 +196,11 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           'Née le ${litter.birthDate.day}/${litter.birthDate.month}/${litter.birthDate.year} • $ageLabel',
           style: AppTextStyles.captionLabel,
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right_rounded,
-          color: AppColors.textSecondary,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.darkTextSecondary
+              : AppColors.textSecondary,
         ),
       ),
     );
@@ -190,11 +229,17 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           ),
           leading: CircleAvatar(
             backgroundColor: isPremium
-                ? AppColors.primaryLight
-                : AppColors.border,
+                ? (Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.primaryDark.withValues(alpha: 0.25)
+                    : AppColors.primaryLight)
+                : Theme.of(context).colorScheme.outlineVariant,
             child: Icon(
               isPremium ? Icons.folder_zip_rounded : Icons.lock_rounded,
-              color: isPremium ? AppColors.primary : AppColors.textSecondary,
+              color: isPremium
+                  ? AppColors.primary
+                  : (Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary),
             ),
           ),
           title: Text(
@@ -206,9 +251,11 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
             style: AppTextStyles.captionLabel,
           ),
           trailing: isPremium
-              ? const Icon(
+              ? Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.textSecondary,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 )
               : const Icon(
                   Icons.lock_rounded,

@@ -166,4 +166,5 @@ class MockDatabase {
   ];
 
   bool premiumUser = false;
+  String themeMode = 'system';
 }

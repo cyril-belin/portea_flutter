@@ -109,6 +109,13 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
 
     final isFemale = puppy.sex.toLowerCase() == 'female' || puppy.sex == '♀';
 
+    final headerWidget = _buildHeader(puppy, isFemale);
+    final weightCurveWidget = _buildWeightCurveSection();
+    final weightHistoryWidget = _buildWeightHistorySection(viewModel);
+    final healthWidget = _buildHealthSection(viewModel);
+    final buyerWidget = _buildBuyerSection(puppy, viewModel);
+    final documentsWidget = _buildDocumentsSection(viewModel);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(puppy.name),
@@ -125,34 +132,67 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 1. Header Section
-            _buildHeader(puppy, isFemale),
-            const SizedBox(height: 24),
-
-            // 2. Weight Curve stub
-            _buildWeightCurveSection(),
-            const SizedBox(height: 24),
-
-            // 3. Weight History
-            _buildWeightHistorySection(viewModel),
-            const SizedBox(height: 24),
-
-            // 4. Health / Care timeline
-            _buildHealthSection(viewModel),
-            const SizedBox(height: 24),
-
-            // 5. Buyer & Status section
-            _buildBuyerSection(puppy, viewModel),
-            const SizedBox(height: 24),
-
-            // 6. Documents Cession
-            _buildDocumentsSection(viewModel),
-          ],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 850) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            headerWidget,
+                            const SizedBox(height: 24),
+                            weightCurveWidget,
+                            const SizedBox(height: 24),
+                            weightHistoryWidget,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 5,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            healthWidget,
+                            const SizedBox(height: 24),
+                            buyerWidget,
+                            const SizedBox(height: 24),
+                            documentsWidget,
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      headerWidget,
+                      const SizedBox(height: 24),
+                      weightCurveWidget,
+                      const SizedBox(height: 24),
+                      weightHistoryWidget,
+                      const SizedBox(height: 24),
+                      healthWidget,
+                      const SizedBox(height: 24),
+                      buyerWidget,
+                      const SizedBox(height: 24),
+                      documentsWidget,
+                    ],
+                  );
+                }
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -219,14 +259,18 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
             Container(
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primaryLight.withValues(alpha: 0.3),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.primaryDark.withValues(alpha: 0.2)
+                    : AppColors.primaryLight.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   'Graphique de croissance',
                   style: TextStyle(
-                    color: AppColors.primaryDark,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.primaryLight
+                        : AppColors.primaryDark,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -275,7 +319,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: vm.weighings.length,
               separatorBuilder: (context, index) =>
-                  const Divider(height: 1, color: AppColors.border),
+                  const Divider(height: 1),
               itemBuilder: (context, index) {
                 final w = vm.weighings[index];
                 return ListTile(
@@ -476,7 +520,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(

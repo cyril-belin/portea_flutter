@@ -32,34 +32,78 @@ class _BreedersListScreenState extends State<BreedersListScreen> {
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : viewModel.breeders.isEmpty
-          ? EmptyStateWidget(
-              icon: Icons.pets_rounded,
-              title: 'Aucun reproducteur',
-              subtitle:
-                  'Ajoutez vos reproducteurs pour pouvoir déclarer une portée.',
-              primaryActionLabel: 'Ajouter un reproducteur',
-              onPrimaryAction: () => context.push('/breeders/new'),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: viewModel.breeders.length,
-              itemBuilder: (context, index) {
-                final breeder = viewModel.breeders[index];
-                final birthDateStr = breeder.birthDate != null
-                    ? '${breeder.birthDate!.day}/${breeder.birthDate!.month}/${breeder.birthDate!.year}'
-                    : 'Date inconnue';
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: AnimalListTile(
-                    name: breeder.name,
-                    sex: breeder.sex,
-                    subtitle:
-                        '${breeder.breed ?? "Race inconnue"} • Né le $birthDateStr',
-                    onTap: () => context.push('/breeders/${breeder.id}'),
-                  ),
-                );
-              },
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: viewModel.breeders.isEmpty
+                    ? EmptyStateWidget(
+                        icon: Icons.pets_rounded,
+                        title: 'Aucun reproducteur',
+                        subtitle:
+                            'Ajoutez vos reproducteurs pour pouvoir déclarer une portée.',
+                        primaryActionLabel: 'Ajouter un reproducteur',
+                        onPrimaryAction: () => context.push('/breeders/new'),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (constraints.maxWidth > 650) {
+                            return GridView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 400,
+                                mainAxisExtent: 88,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: viewModel.breeders.length,
+                              itemBuilder: (context, index) {
+                                final breeder = viewModel.breeders[index];
+                                final birthDateStr = breeder.birthDate != null
+                                    ? '${breeder.birthDate!.day}/${breeder.birthDate!.month}/${breeder.birthDate!.year}'
+                                    : 'Date inconnue';
+                                return AnimalListTile(
+                                  name: breeder.name,
+                                  sex: breeder.sex,
+                                  subtitle:
+                                      '${breeder.breed ?? "Race inconnue"} • Né le $birthDateStr',
+                                  onTap: () =>
+                                      context.push('/breeders/${breeder.id}'),
+                                );
+                              },
+                            );
+                          } else {
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              itemCount: viewModel.breeders.length,
+                              itemBuilder: (context, index) {
+                                final breeder = viewModel.breeders[index];
+                                final birthDateStr = breeder.birthDate != null
+                                    ? '${breeder.birthDate!.day}/${breeder.birthDate!.month}/${breeder.birthDate!.year}'
+                                    : 'Date inconnue';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: AnimalListTile(
+                                    name: breeder.name,
+                                    sex: breeder.sex,
+                                    subtitle:
+                                        '${breeder.breed ?? "Race inconnue"} • Né le $birthDateStr',
+                                    onTap: () =>
+                                        context.push('/breeders/${breeder.id}'),
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                        },
+                      ),
+              ),
             ),
       floatingActionButton: FloatingActionButton(
         heroTag: null,

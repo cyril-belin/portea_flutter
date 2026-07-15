@@ -71,17 +71,20 @@ class _AddCareScreenState extends State<AddCareScreen> {
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Segmented control type
-                    Text(
-                      'Type de soin',
-                      style: AppTextStyles.captionLabel.copyWith(
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 650),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Segmented control type
+                        Text(
+                          'Type de soin',
+                          style: AppTextStyles.captionLabel.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
@@ -221,7 +224,7 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                   setState(() => _setReminder = val),
                             ),
                             if (_setReminder) ...[
-                              const Divider(color: AppColors.border),
+                              const Divider(),
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
@@ -318,6 +321,8 @@ class _AddCareScreenState extends State<AddCareScreen> {
                 ),
               ),
             ),
+          ),
+        ),
     );
   }
 }

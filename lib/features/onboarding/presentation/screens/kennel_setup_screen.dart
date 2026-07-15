@@ -18,19 +18,28 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<OnboardingViewModel>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimaryColor = Theme.of(context).colorScheme.onSurface;
+    final textSecondaryColor = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final surfaceColor = Theme.of(context).colorScheme.surface;
+    final borderCol = Theme.of(context).colorScheme.outlineVariant;
+    final primaryLightColor = isDark ? AppColors.primaryDark.withValues(alpha: 0.25) : AppColors.primaryLight;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Création élevage'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 650),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 Text(
                   'Parlez-nous de votre élevage',
                   style: AppTextStyles.sectionTitle,
@@ -62,7 +71,7 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                   'Espèce principale élevée',
                   style: AppTextStyles.captionLabel.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: textPrimaryColor,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -75,13 +84,13 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: viewModel.species == 'dog'
-                                ? AppColors.primaryLight
-                                : AppColors.surface,
+                                ? primaryLightColor
+                                : surfaceColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: viewModel.species == 'dog'
                                   ? AppColors.primary
-                                  : AppColors.border,
+                                  : borderCol,
                               width: viewModel.species == 'dog' ? 1.5 : 1,
                             ),
                           ),
@@ -91,7 +100,7 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                                 Icons.pets_rounded,
                                 color: viewModel.species == 'dog'
                                     ? AppColors.primary
-                                    : AppColors.textSecondary,
+                                    : textSecondaryColor,
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -101,8 +110,8 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: viewModel.species == 'dog'
-                                      ? AppColors.primaryDark
-                                      : AppColors.textPrimary,
+                                      ? AppColors.primary
+                                      : textPrimaryColor,
                                 ),
                               ),
                             ],
@@ -118,24 +127,23 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: viewModel.species == 'cat'
-                                ? AppColors.primaryLight
-                                : AppColors.surface,
+                                ? primaryLightColor
+                                : surfaceColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: viewModel.species == 'cat'
                                   ? AppColors.primary
-                                  : AppColors.border,
+                                  : borderCol,
                               width: viewModel.species == 'cat' ? 1.5 : 1,
                             ),
                           ),
                           child: Column(
                             children: [
                               Icon(
-                                Icons
-                                    .pets_sharp, // different pet icon or anything for cats
+                                Icons.pets_sharp, // different pet icon or anything for cats
                                 color: viewModel.species == 'cat'
                                     ? AppColors.primary
-                                    : AppColors.textSecondary,
+                                    : textSecondaryColor,
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -145,8 +153,8 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: viewModel.species == 'cat'
-                                      ? AppColors.primaryDark
-                                      : AppColors.textPrimary,
+                                      ? AppColors.primary
+                                      : textPrimaryColor,
                                 ),
                               ),
                             ],
@@ -210,6 +218,8 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 }

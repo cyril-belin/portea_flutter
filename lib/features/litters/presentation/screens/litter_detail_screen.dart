@@ -55,206 +55,254 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
     final reservedCount = puppies.where((p) => p.status == 'reserved').length;
     final soldCount = puppies.where((p) => p.status == 'sold').length;
 
+    final headerCard = Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Parents',
+                      style: AppTextStyles.captionLabel.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${mother?.name ?? "Mère"} ♀ • ${father?.name ?? litter.externalSireName ?? "Père"} ♂',
+                      style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    ageLabel,
+                    style: AppTextStyles.captionLabel.copyWith(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Text(
+              'Date de naissance : ${litter.birthDate.day}/${litter.birthDate.month}/${litter.birthDate.year}',
+              style: AppTextStyles.captionLabel,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final quickActions = Row(
+      children: [
+        Expanded(
+          child: _buildGroupActionBtn(
+            context: context,
+            icon: Icons.scale_rounded,
+            label: 'Pesée',
+            onTap: () => context.push('/litters/${litter.id}/weighing'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildGroupActionBtn(
+            context: context,
+            icon: Icons.vaccines_rounded,
+            label: 'Soin',
+            onTap: () => context.push('/litters/${litter.id}/care'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildGroupActionBtn(
+            context: context,
+            icon: Icons.description_rounded,
+            label: 'Docs',
+            onTap: () =>
+                context.push('/litters/${litter.id}/documents'),
+          ),
+        ),
+      ],
+    );
+
+    final puppiesStatsHeader = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Chiots (${puppies.length})',
+          style: AppTextStyles.sectionTitle,
+        ),
+        Row(
+          children: [
+            _buildMiniBadge(
+              '$availableCount dispo',
+              AppColors.statusAvailable,
+            ),
+            const SizedBox(width: 6),
+            _buildMiniBadge(
+              '$reservedCount rés.',
+              AppColors.statusReserved,
+            ),
+            const SizedBox(width: 6),
+            _buildMiniBadge('$soldCount vendus', AppColors.statusSold),
+          ],
+        ),
+      ],
+    );
+
+    final puppiesListOrEmptyState = puppies.isEmpty
+        ? EmptyStateWidget(
+            icon: Icons.pets_outlined,
+            title: 'Aucun chiot déclaré',
+            subtitle:
+                'Ajoutez des chiots à cette portée pour commencer le suivi.',
+            primaryActionLabel: 'Déclarer les chiots',
+            onPrimaryAction: () =>
+                context.push('/litters/${litter.id}/puppies/batch'),
+          )
+        : ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: puppies.length,
+            itemBuilder: (context, index) {
+              final puppy = puppies[index];
+              final isFemale =
+                  puppy.sex.toLowerCase() == 'female' || puppy.sex == '♀';
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  onTap: () => context.push('/puppies/${puppy.id}'),
+                  leading: CircleAvatar(
+                    backgroundColor: isFemale
+                        ? AppColors.female.withValues(alpha: 0.15)
+                        : AppColors.male.withValues(alpha: 0.15),
+                    child: Text(
+                      puppy.sex.toLowerCase() == 'female' ? '♀' : '♂',
+                      style: TextStyle(
+                        color: isFemale ? AppColors.female : AppColors.male,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    puppy.name,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Text(
+                    puppy.color ?? 'Couleur non précisée',
+                    style: AppTextStyles.captionLabel,
+                  ),
+                  trailing: StatusBadgeWidget(status: puppy.status),
+                ),
+              );
+            },
+          );
+
+    final addEditButton = OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        side: const BorderSide(color: AppColors.primary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      onPressed: () =>
+          context.push('/litters/${litter.id}/puppies/batch'),
+      icon: const Icon(Icons.add_rounded, color: AppColors.primary),
+      label: const Text(
+        'Ajouter / Editer les chiots',
+        style: TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Portée de ${mother?.name ?? "Mère"}'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth > 800) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              'Parents',
-                              style: AppTextStyles.captionLabel.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${mother?.name ?? "Mère"} ♀ • ${father?.name ?? litter.externalSireName ?? "Père"} ♂',
-                              style: AppTextStyles.body.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            headerCard,
+                            const SizedBox(height: 16),
+                            quickActions,
+                            if (puppies.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              addEditButton,
+                            ],
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: Text(
-                            ageLabel,
-                            style: AppTextStyles.captionLabel.copyWith(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24, color: AppColors.border),
-                    Text(
-                      'Date de naissance : ${litter.birthDate.day}/${litter.birthDate.month}/${litter.birthDate.year}',
-                      style: AppTextStyles.captionLabel,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Quick Group Actions
-            Row(
-              children: [
-                Expanded(
-                  child: _buildGroupActionBtn(
-                    context: context,
-                    icon: Icons.scale_rounded,
-                    label: 'Pesée',
-                    onTap: () => context.push('/litters/${litter.id}/weighing'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildGroupActionBtn(
-                    context: context,
-                    icon: Icons.vaccines_rounded,
-                    label: 'Soin',
-                    onTap: () => context.push('/litters/${litter.id}/care'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildGroupActionBtn(
-                    context: context,
-                    icon: Icons.description_rounded,
-                    label: 'Docs',
-                    onTap: () =>
-                        context.push('/litters/${litter.id}/documents'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Stats row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Chiots (${puppies.length})',
-                  style: AppTextStyles.sectionTitle,
-                ),
-                Row(
-                  children: [
-                    _buildMiniBadge(
-                      '$availableCount dispo',
-                      AppColors.statusAvailable,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildMiniBadge(
-                      '$reservedCount rés.',
-                      AppColors.statusReserved,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildMiniBadge('$soldCount vendus', AppColors.statusSold),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            if (puppies.isEmpty)
-              EmptyStateWidget(
-                icon: Icons.pets_outlined,
-                title: 'Aucun chiot déclaré',
-                subtitle:
-                    'Ajoutez des chiots à cette portée pour commencer le suivi.',
-                primaryActionLabel: 'Déclarer les chiots',
-                onPrimaryAction: () =>
-                    context.push('/litters/${litter.id}/puppies/batch'),
-              )
-            else ...[
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: puppies.length,
-                itemBuilder: (context, index) {
-                  final puppy = puppies[index];
-                  final isFemale =
-                      puppy.sex.toLowerCase() == 'female' || puppy.sex == '♀';
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      onTap: () => context.push('/puppies/${puppy.id}'),
-                      leading: CircleAvatar(
-                        backgroundColor: isFemale
-                            ? AppColors.female.withValues(alpha: 0.15)
-                            : AppColors.male.withValues(alpha: 0.15),
-                        child: Text(
-                          puppy.sex.toLowerCase() == 'female' ? '♀' : '♂',
-                          style: TextStyle(
-                            color: isFemale ? AppColors.female : AppColors.male,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        flex: 6,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            puppiesStatsHeader,
+                            const SizedBox(height: 12),
+                            puppiesListOrEmptyState,
+                          ],
                         ),
                       ),
-                      title: Text(
-                        puppy.name,
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      subtitle: Text(
-                        puppy.color ?? 'Couleur non précisée',
-                        style: AppTextStyles.captionLabel,
-                      ),
-                      trailing: StatusBadgeWidget(status: puppy.status),
-                    ),
+                    ],
                   );
-                },
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  side: const BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () =>
-                    context.push('/litters/${litter.id}/puppies/batch'),
-                icon: const Icon(Icons.add_rounded, color: AppColors.primary),
-                label: const Text(
-                  'Ajouter / Editer les chiots',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ],
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      headerCard,
+                      const SizedBox(height: 16),
+                      quickActions,
+                      const SizedBox(height: 24),
+                      puppiesStatsHeader,
+                      const SizedBox(height: 12),
+                      puppiesListOrEmptyState,
+                      if (puppies.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        addEditButton,
+                      ],
+                    ],
+                  );
+                }
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -268,9 +316,9 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
   }) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.border, width: 0.5),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(vertical: 12),

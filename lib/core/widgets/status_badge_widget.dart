@@ -15,29 +15,36 @@ class StatusBadgeWidget extends StatelessWidget {
     Color bg;
     Color text;
     String label;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     switch (status.toLowerCase()) {
       case 'available':
       case 'disponible':
-        bg = AppColors.statusAvailableBg;
-        text = AppColors.statusAvailableText;
+        bg = isDark
+            ? AppColors.statusAvailable.withValues(alpha: 0.15)
+            : AppColors.statusAvailableBg;
+        text = isDark ? AppColors.statusAvailable : AppColors.statusAvailableText;
         label = 'Disponible';
         break;
       case 'reserved':
       case 'réservé':
-        bg = AppColors.statusReservedBg;
-        text = AppColors.statusReservedText;
+        bg = isDark
+            ? AppColors.statusReserved.withValues(alpha: 0.15)
+            : AppColors.statusReservedBg;
+        text = isDark ? AppColors.statusReserved : AppColors.statusReservedText;
         label = 'Réservé';
         break;
       case 'sold':
       case 'vendu':
-        bg = AppColors.statusSoldBg;
-        text = AppColors.statusSoldText;
+        bg = isDark
+            ? AppColors.statusSold.withValues(alpha: 0.15)
+            : AppColors.statusSoldBg;
+        text = isDark ? AppColors.statusSold : AppColors.statusSoldText;
         label = 'Vendu';
         break;
       default:
-        bg = AppColors.border;
-        text = AppColors.textPrimary;
+        bg = isDark ? AppColors.darkBorder : AppColors.border;
+        text = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
         label = status;
     }
 

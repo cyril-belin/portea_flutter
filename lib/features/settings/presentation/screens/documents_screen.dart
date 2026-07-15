@@ -32,41 +32,46 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       appBar: AppBar(
         title: const Text('Documents Portée'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Génération de documents', style: AppTextStyles.sectionTitle),
-            const SizedBox(height: 8),
-            Text(
-              'Générez instantanément vos PDF officiels pré-remplis.',
-              style: AppTextStyles.captionLabel,
-            ),
-            const SizedBox(height: 20),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Génération de documents', style: AppTextStyles.sectionTitle),
+                const SizedBox(height: 8),
+                Text(
+                  'Générez instantanément vos PDF officiels pré-remplis.',
+                  style: AppTextStyles.captionLabel,
+                ),
+                const SizedBox(height: 20),
 
-            _buildDocumentTile(
-              context: context,
-              title: 'Registre des entrées & sorties (Portée)',
-              description: 'Registre d\'élevage officiel requis par la DDPP.',
-              isPremium: isPremium,
+                _buildDocumentTile(
+                  context: context,
+                  title: 'Registre des entrées & sorties (Portée)',
+                  description: 'Registre d\'élevage officiel requis par la DDPP.',
+                  isPremium: isPremium,
+                ),
+                const SizedBox(height: 12),
+                _buildDocumentTile(
+                  context: context,
+                  title: 'Certificat de vente / Cession',
+                  description:
+                      'Facture et contrat de vente pré-rempli avec l\'acquéreur.',
+                  isPremium: isPremium,
+                ),
+                const SizedBox(height: 12),
+                _buildDocumentTile(
+                  context: context,
+                  title: 'Fiche d\'accompagnement du chiot',
+                  description: 'Conseils de croissance et historique des pesées.',
+                  isPremium: isPremium,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildDocumentTile(
-              context: context,
-              title: 'Certificat de vente / Cession',
-              description:
-                  'Facture et contrat de vente pré-rempli avec l\'acquéreur.',
-              isPremium: isPremium,
-            ),
-            const SizedBox(height: 12),
-            _buildDocumentTile(
-              context: context,
-              title: 'Fiche d\'accompagnement du chiot',
-              description: 'Conseils de croissance et historique des pesées.',
-              isPremium: isPremium,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -104,7 +109,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         contentPadding: const EdgeInsets.all(16),
         leading: Icon(
           Icons.picture_as_pdf_rounded,
-          color: isPremium ? AppColors.error : AppColors.textSecondary,
+          color: isPremium
+              ? AppColors.error
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary),
           size: 36,
         ),
         title: Text(

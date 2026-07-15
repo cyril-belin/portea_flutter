@@ -65,23 +65,26 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Nouvelle portée',
-                      style: AppTextStyles.sectionTitle,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Remplissez les détails des parents et de la naissance.',
-                      style: AppTextStyles.captionLabel,
-                    ),
-                    const SizedBox(height: 24),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 650),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Nouvelle portée',
+                          style: AppTextStyles.sectionTitle,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Remplissez les détails des parents et de la naissance.',
+                          style: AppTextStyles.captionLabel,
+                        ),
+                        const SizedBox(height: 24),
 
                     // Mother Dropdown
                     DropdownButtonFormField<int>(
@@ -111,6 +114,11 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                               child: Text('Père de l\'élevage'),
                             ),
                             selected: !_isExternalSire,
+                            selectedColor: AppColors.primary,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: !_isExternalSire ? Colors.white : null,
+                            ),
                             onSelected: (selected) {
                               if (selected) {
                                 setState(() => _isExternalSire = false);
@@ -123,6 +131,11 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                           child: ChoiceChip(
                             label: const Center(child: Text('Père extérieur')),
                             selected: _isExternalSire,
+                            selectedColor: AppColors.primary,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: _isExternalSire ? Colors.white : null,
+                            ),
                             onSelected: (selected) {
                               if (selected) {
                                 setState(() => _isExternalSire = true);
@@ -235,6 +248,8 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                 ),
               ),
             ),
+          ),
+        ),
     );
   }
 }

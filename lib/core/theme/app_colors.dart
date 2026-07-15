@@ -12,6 +12,13 @@ class AppColors {
   static const Color textPrimary = Color(0xFF2C2C2A);
   static const Color textSecondary = Color(0xFF948A80);
 
+  // Dark mode colors
+  static const Color darkBackground = Color(0xFF121212);
+  static const Color darkSurface = Color(0xFF1E1E1E);
+  static const Color darkBorder = Color(0xFF2C2C2C);
+  static const Color darkTextPrimary = Color(0xFFE5E5E5);
+  static const Color darkTextSecondary = Color(0xFF8E8E93);
+
   // Status badge colors
   static const Color statusAvailable = Color(0xFF639922);
   static const Color statusAvailableBg = Color(0xFFEAF3DE);

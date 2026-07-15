@@ -24,14 +24,19 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFAECE7),
-              Color(0xFFFAF6F2),
-            ],
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? const [
+                    Color(0xFF2C1914), // dark peach/orange tint
+                    Color(0xFF121212), // dark background
+                  ]
+                : const [
+                    Color(0xFFFAECE7),
+                    Color(0xFFFAF6F2),
+                  ],
           ),
         ),
         child: SafeArea(
@@ -55,10 +60,13 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
               ),
 
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    children: [
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 650),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        children: [
                       // Header Logo / Icon
                       const CircleAvatar(
                         radius: 36,
@@ -88,21 +96,25 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
 
                       // Benefits
                       _buildBenefitRow(
+                        context,
                         Icons.description_rounded,
                         'Documents administratifs illimités',
                       ),
                       const SizedBox(height: 16),
                       _buildBenefitRow(
+                        context,
                         Icons.layers_rounded,
                         'Portées et historique illimités',
                       ),
                       const SizedBox(height: 16),
                       _buildBenefitRow(
+                        context,
                         Icons.scale_rounded,
                         'Courbes de croissance exportables',
                       ),
                       const SizedBox(height: 16),
                       _buildBenefitRow(
+                        context,
                         Icons.notifications_active_rounded,
                         'Rappels et alertes de santé avancées',
                       ),
@@ -116,6 +128,11 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                           ChoiceChip(
                             label: const Text('Annuel (2 mois offerts)'),
                             selected: _isAnnual,
+                            selectedColor: AppColors.primary,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: _isAnnual ? Colors.white : null,
+                            ),
                             onSelected: (selected) {
                               if (selected) setState(() => _isAnnual = true);
                             },
@@ -124,6 +141,11 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                           ChoiceChip(
                             label: const Text('Mensuel'),
                             selected: !_isAnnual,
+                            selectedColor: AppColors.primary,
+                            checkmarkColor: Colors.white,
+                            labelStyle: TextStyle(
+                              color: !_isAnnual ? Colors.white : null,
+                            ),
                             onSelected: (selected) {
                               if (selected) setState(() => _isAnnual = false);
                             },
@@ -136,7 +158,7 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: AppColors.primary,
@@ -216,9 +238,13 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
 
                       TextButton(
                         onPressed: () {},
-                        child: const Text(
+                        child: Text(
                           'Restaurer mes achats',
-                          style: TextStyle(color: AppColors.textSecondary),
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.textSecondary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -226,6 +252,8 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                   ),
                 ),
               ),
+            ),
+          ),
             ],
           ),
         ),
@@ -233,13 +261,16 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
     );
   }
 
-  Widget _buildBenefitRow(IconData icon, String text) {
+  Widget _buildBenefitRow(BuildContext context, IconData icon, String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppColors.primaryLight,
+            color: isDark
+                ? AppColors.primaryDark.withValues(alpha: 0.3)
+                : AppColors.primaryLight,
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: AppColors.primary, size: 22),

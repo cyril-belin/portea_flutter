@@ -22,6 +22,9 @@ class SettingsViewModel extends ChangeNotifier {
   bool _isPremium = false;
   bool get isPremium => _isPremium;
 
+  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode get themeMode => _themeMode;
+
   Future<void> loadSettings() async {
     _isLoading = true;
     notifyListeners();
@@ -29,11 +32,34 @@ class SettingsViewModel extends ChangeNotifier {
     try {
       _kennel = await _kennelRepository.getKennel();
       _isPremium = await _settingsRepository.isPremium();
+      final themeStr = await _settingsRepository.getThemeMode();
+      _themeMode = _parseThemeMode(themeStr);
     } catch (_) {
       // Ignore
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  ThemeMode _parseThemeMode(String themeStr) {
+    switch (themeStr) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  Future<void> updateThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    notifyListeners();
+    try {
+      await _settingsRepository.setThemeMode(mode.name);
+    } catch (_) {
+      // Ignore
     }
   }
 

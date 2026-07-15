@@ -86,200 +86,253 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
-              key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Avatar Placeholder
-                    Center(
-                      child: CircleAvatar(
-                        radius: 48,
-                        backgroundColor: _sex == 'female'
-                            ? AppColors.female.withValues(alpha: 0.1)
-                            : AppColors.male.withValues(alpha: 0.1),
-                        child: Icon(
-                          Icons.pets_rounded,
-                          size: 48,
-                          color: _sex == 'female'
-                              ? AppColors.female
-                              : AppColors.male,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Nom
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nom de l\'animal',
-                        hintText: 'Ex: Salsa',
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Veuillez entrer un nom';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Sexe Selector
-                    Text(
-                      'Sexe',
-                      style: AppTextStyles.captionLabel.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('Femelle ♀')),
-                            selected: _sex == 'female',
-                            selectedColor: AppColors.female.withValues(alpha: 0.2),
-                            onSelected: (selected) {
-                              if (selected) setState(() => _sex = 'female');
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('Mâle ♂')),
-                            selected: _sex == 'male',
-                            selectedColor: AppColors.male.withValues(alpha: 0.2),
-                            onSelected: (selected) {
-                              if (selected) setState(() => _sex = 'male');
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Race
-                    TextFormField(
-                      controller: _breedController,
-                      decoration: const InputDecoration(
-                        labelText: 'Race',
-                        hintText: 'Ex: Golden Retriever',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Date de naissance
-                    InkWell(
-                      onTap: () => _selectBirthDate(context),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Date de naissance',
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 650),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth > 500;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(
-                              _birthDate == null
-                                  ? 'Sélectionner une date'
-                                  : '${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}',
-                              style: AppTextStyles.body,
+                            // Avatar Placeholder
+                            Center(
+                              child: CircleAvatar(
+                                radius: 48,
+                                backgroundColor: _sex == 'female'
+                                    ? AppColors.female.withValues(alpha: 0.1)
+                                    : AppColors.male.withValues(alpha: 0.1),
+                                child: Icon(
+                                  Icons.pets_rounded,
+                                  size: 48,
+                                  color: _sex == 'female'
+                                      ? AppColors.female
+                                      : AppColors.male,
+                                ),
+                              ),
                             ),
-                            const Icon(
-                              Icons.calendar_today_rounded,
-                              color: AppColors.textSecondary,
+                            const SizedBox(height: 24),
+
+                            // Nom
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nom de l\'animal',
+                                hintText: 'Ex: Salsa',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Veuillez entrer un nom';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Sexe Selector
+                            Text(
+                              'Sexe',
+                              style: AppTextStyles.captionLabel.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('Femelle ♀')),
+                                    selected: _sex == 'female',
+                                    selectedColor: AppColors.female,
+                                    checkmarkColor: Colors.white,
+                                    labelStyle: TextStyle(
+                                      color: _sex == 'female' ? Colors.white : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _sex = 'female');
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('Mâle ♂')),
+                                    selected: _sex == 'male',
+                                    selectedColor: AppColors.male,
+                                    checkmarkColor: Colors.white,
+                                    labelStyle: TextStyle(
+                                      color: _sex == 'male' ? Colors.white : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _sex = 'male');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Race
+                            TextFormField(
+                              controller: _breedController,
+                              decoration: const InputDecoration(
+                                labelText: 'Race',
+                                hintText: 'Ex: Golden Retriever',
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Date de naissance
+                            InkWell(
+                              onTap: () => _selectBirthDate(context),
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Date de naissance',
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _birthDate == null
+                                          ? 'Sélectionner une date'
+                                          : '${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}',
+                                      style: AppTextStyles.body,
+                                    ),
+                                    const Icon(
+                                      Icons.calendar_today_rounded,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Identification Puce/Tatouage
+                            if (isWide)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _chipController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: 'N° de Puce (I-CAD)',
+                                        hintText: 'Ex: 250268...',
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _tattooController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'N° de Tatouage',
+                                        hintText: 'Ex: XXX123',
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else ...[
+                              TextFormField(
+                                controller: _chipController,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'N° de Puce (I-CAD)',
+                                  hintText: 'Ex: 250268...',
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _tattooController,
+                                decoration: const InputDecoration(
+                                  labelText: 'N° de Tatouage',
+                                  hintText: 'Ex: XXX123',
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+
+                            // Statut Actif/Retraité
+                            Text(
+                              'Statut',
+                              style: AppTextStyles.captionLabel.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('Actif')),
+                                    selected: _status == 'active',
+                                    selectedColor: AppColors.primary,
+                                    checkmarkColor: Colors.white,
+                                    labelStyle: TextStyle(
+                                      color: _status == 'active' ? Colors.white : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _status = 'active');
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ChoiceChip(
+                                    label: const Center(child: Text('Retraité')),
+                                    selected: _status == 'retired',
+                                    selectedColor: AppColors.primary,
+                                    checkmarkColor: Colors.white,
+                                    labelStyle: TextStyle(
+                                      color: _status == 'retired' ? Colors.white : null,
+                                    ),
+                                    onSelected: (selected) {
+                                      if (selected) setState(() => _status = 'retired');
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 32),
+
+                            // Save Button
+                            ElevatedButton(
+                              onPressed: () async {
+                                if (_formKey.currentState!.validate()) {
+                                  final listVm = context.read<BreederListViewModel>();
+                                  final goRouter = GoRouter.of(context);
+                                  final success = await viewModel.saveBreeder(
+                                    name: _nameController.text.trim(),
+                                    sex: _sex,
+                                    breed: _breedController.text.trim(),
+                                    birthDate: _birthDate,
+                                    chipNumber: _chipController.text.trim(),
+                                    tattooNumber: _tattooController.text.trim(),
+                                    status: _status,
+                                  );
+                                  if (success && mounted) {
+                                    listVm.loadBreeders();
+                                    goRouter.pop();
+                                  }
+                                }
+                              },
+                              child: Text(
+                                isEditing
+                                    ? 'Enregistrer les modifications'
+                                    : 'Créer le reproducteur',
+                              ),
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Identification Puce/Tatouage
-                    TextFormField(
-                      controller: _chipController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'N° de Puce (I-CAD)',
-                        hintText: 'Ex: 250268...',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _tattooController,
-                      decoration: const InputDecoration(
-                        labelText: 'N° de Tatouage',
-                        hintText: 'Ex: XXX123',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Statut Actif/Retraité
-                    Text(
-                      'Statut',
-                      style: AppTextStyles.captionLabel.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('Actif')),
-                            selected: _status == 'active',
-                            onSelected: (selected) {
-                              if (selected) setState(() => _status = 'active');
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('Retraité')),
-                            selected: _status == 'retired',
-                            onSelected: (selected) {
-                              if (selected) setState(() => _status = 'retired');
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Save Button
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          final listVm = context.read<BreederListViewModel>();
-                          final goRouter = GoRouter.of(context);
-                          final success = await viewModel.saveBreeder(
-                            name: _nameController.text.trim(),
-                            sex: _sex,
-                            breed: _breedController.text.trim(),
-                            birthDate: _birthDate,
-                            chipNumber: _chipController.text.trim(),
-                            tattooNumber: _tattooController.text.trim(),
-                            status: _status,
-                          );
-                          if (success && mounted) {
-                            listVm.loadBreeders();
-                            goRouter.pop();
-                          }
-                        }
+                        );
                       },
-                      child: Text(
-                        isEditing
-                            ? 'Enregistrer les modifications'
-                            : 'Créer le reproducteur',
-                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

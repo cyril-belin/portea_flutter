@@ -81,9 +81,11 @@ class AnimalListTile extends StatelessWidget {
             : null,
         trailing: status != null
             ? StatusBadgeWidget(status: status!)
-            : const Icon(
+            : Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textSecondary,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
       ),
     );
