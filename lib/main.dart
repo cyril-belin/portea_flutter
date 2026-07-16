@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/auth/authenticated_listenable.dart';
+import 'core/notifications/notification_service.dart';
 
 // Import repositories
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
@@ -72,6 +73,9 @@ void main() async {
   final careRepository = MockCareRepository();
   final settingsRepository = MockSettingsRepository();
 
+  // Core services
+  final notificationService = NotificationService();
+
   // Pre-instantiate OnboardingViewModel because GoRouter needs it for refreshListenable
   final onboardingViewModel = OnboardingViewModel(
     kennelRepository: kennelRepository,
@@ -89,6 +93,9 @@ void main() async {
         Provider<IWeighingRepository>.value(value: weighingRepository),
         Provider<ICareRepository>.value(value: careRepository),
         Provider<ISettingsRepository>.value(value: settingsRepository),
+
+        // Core services
+        Provider<NotificationService>.value(value: notificationService),
 
         // View models injection
         ChangeNotifierProvider<OnboardingViewModel>.value(

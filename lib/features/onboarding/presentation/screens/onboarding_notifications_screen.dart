@@ -1,16 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_text_styles.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../core/notifications/notification_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../view_models/onboarding_view_model.dart';
 
-class OnboardingNotificationsScreen extends StatelessWidget {
+class OnboardingNotificationsScreen extends StatefulWidget {
   const OnboardingNotificationsScreen({super.key});
 
-  void _finish(BuildContext context) {
+  @override
+  State<OnboardingNotificationsScreen> createState() =>
+      _OnboardingNotificationsScreenState();
+}
+
+class _OnboardingNotificationsScreenState
+    extends State<OnboardingNotificationsScreen> {
+  bool _requesting = false;
+
+  void _finish() {
     context.read<OnboardingViewModel>().completeOnboarding();
     context.go('/dashboard');
+  }
+
+  Future<void> _requestPermission() async {
+    setState(() => _requesting = true);
+    try {
+      // Real OS permission request. The result (granted/denied) does not
+      // gate onboarding — the user can proceed either way.
+      await context.read<NotificationService>().requestPermission();
+    } finally {
+      if (mounted) {
+        setState(() => _requesting = false);
+        _finish();
+      }
+    }
   }
 
   @override
@@ -54,13 +79,16 @@ class OnboardingNotificationsScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  ElevatedButton(
-                    onPressed: () => _finish(context),
-                    child: const Text('Autoriser les notifications'),
-                  ),
+                  if (_requesting)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    ElevatedButton(
+                      onPressed: _requestPermission,
+                      child: const Text('Autoriser les notifications'),
+                    ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () => _finish(context),
+                    onPressed: _requesting ? null : _finish,
                     child: Text(
                       'Plus tard',
                       style: TextStyle(
