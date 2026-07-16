@@ -10,7 +10,7 @@ import 'core/routing/app_router.dart';
 
 // Import repositories
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
-import 'features/onboarding/data/repositories/mock_kennel_repository.dart';
+import 'features/onboarding/data/repositories/serverpod_kennel_repository.dart';
 import 'features/breeders/domain/repositories/i_breeder_repository.dart';
 import 'features/breeders/data/repositories/mock_breeder_repository.dart';
 import 'features/litters/domain/repositories/i_litter_repository.dart';
@@ -57,7 +57,7 @@ void main() async {
   client.auth.initialize();
 
   // Create core repositories
-  final kennelRepository = MockKennelRepository();
+  final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = MockBreederRepository();
   final litterRepository = MockLitterRepository();
   final puppyRepository = MockPuppyRepository();
@@ -251,10 +251,11 @@ void main() async {
           )..loadSettings(),
           update: (context, kennel, settings, prev) =>
               prev ??
-              SettingsViewModel(
-                kennelRepository: kennel,
-                settingsRepository: settings,
-              )..loadSettings(),
+                    SettingsViewModel(
+                      kennelRepository: kennel,
+                      settingsRepository: settings,
+                    )
+                ..loadSettings(),
         ),
       ],
       child: const MyApp(),
