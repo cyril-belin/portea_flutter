@@ -19,3 +19,7 @@
 - Upload photo reproducteur/chiot (image_picker, actuellement photoUrl = URL manuelle)
 - UI dédiée de clôture manuelle de portée (updateLitter isActive=false existe côté backend, écran à faire)
 - Dashboard : chiots et rappels encore alimentés par MockPuppyRepository/MockCareRepository (F04+). Le nom de la mère est désormais résolu réellement (fix F03).
+- Lenteur perceptible sur mobile (à profiler : startup, appels serveur, rebuilds).
+- Date picker de date de naissance en anglais (i18n / localization FR à configurer).
+- Suppression de compte : KO (SnackBar seul, pas d'action réelle).
+- « Ajouter mes reproducteurs d'abord » persiste sur l'accueil après ajout de reproducteurs (cohérence d'état Dashboard à revoir).
