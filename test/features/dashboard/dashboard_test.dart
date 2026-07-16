@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
 import 'package:portea_flutter/features/dashboard/presentation/view_models/dashboard_view_model.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
+import 'package:portea_flutter/features/breeders/data/repositories/mock_breeder_repository.dart';
 import 'package:portea_flutter/features/litters/data/repositories/mock_litter_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_care_repository.dart';
@@ -11,6 +12,7 @@ import '../../helpers/test_helpers.dart';
 void main() {
   group('DashboardViewModel', () {
     late MockKennelRepository kennelRepository;
+    late MockBreederRepository breederRepository;
     late MockLitterRepository litterRepository;
     late MockPuppyRepository puppyRepository;
     late MockCareRepository careRepository;
@@ -20,6 +22,7 @@ void main() {
     setUp(() {
       resetMockDatabase();
       kennelRepository = MockKennelRepository();
+      breederRepository = MockBreederRepository();
       litterRepository = MockLitterRepository();
       puppyRepository = MockPuppyRepository();
       careRepository = MockCareRepository();
@@ -27,6 +30,7 @@ void main() {
 
       viewModel = DashboardViewModel(
         kennelRepository: kennelRepository,
+        breederRepository: breederRepository,
         litterRepository: litterRepository,
         puppyRepository: puppyRepository,
         careRepository: careRepository,

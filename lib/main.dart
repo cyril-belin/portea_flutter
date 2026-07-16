@@ -101,8 +101,9 @@ void main() async {
         ChangeNotifierProvider<OnboardingViewModel>.value(
           value: onboardingViewModel,
         ),
-        ChangeNotifierProxyProvider5<
+        ChangeNotifierProxyProvider6<
           IKennelRepository,
+          IBreederRepository,
           ILitterRepository,
           IPuppyRepository,
           ICareRepository,
@@ -111,15 +112,17 @@ void main() async {
         >(
           create: (context) => DashboardViewModel(
             kennelRepository: context.read<IKennelRepository>(),
+            breederRepository: context.read<IBreederRepository>(),
             litterRepository: context.read<ILitterRepository>(),
             puppyRepository: context.read<IPuppyRepository>(),
             careRepository: context.read<ICareRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
           ),
-          update: (context, k, l, p, c, s, prev) =>
+          update: (context, k, b, l, p, c, s, prev) =>
               prev ??
               DashboardViewModel(
                 kennelRepository: k,
+                breederRepository: b,
                 litterRepository: l,
                 puppyRepository: p,
                 careRepository: c,
