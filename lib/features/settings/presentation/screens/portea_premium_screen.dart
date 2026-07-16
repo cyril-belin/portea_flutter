@@ -136,8 +136,9 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                                   color: _isAnnual ? Colors.white : null,
                                 ),
                                 onSelected: (selected) {
-                                  if (selected)
+                                  if (selected) {
                                     setState(() => _isAnnual = true);
+                                  }
                                 },
                               ),
                               const SizedBox(width: 12),
@@ -150,8 +151,9 @@ class _PorteaPremiumScreenState extends State<PorteaPremiumScreen> {
                                   color: !_isAnnual ? Colors.white : null,
                                 ),
                                 onSelected: (selected) {
-                                  if (selected)
+                                  if (selected) {
                                     setState(() => _isAnnual = false);
+                                  }
                                 },
                               ),
                             ],

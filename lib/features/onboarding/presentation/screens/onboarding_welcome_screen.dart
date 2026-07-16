@@ -27,7 +27,7 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                     child: Icon(
                       Icons.pets_rounded,
                       size: 96,
-                      color: Color(0xFFC4664A),
+                      color: AppColors.primary,
                     ),
                   ),
                   const SizedBox(height: 32),

@@ -97,8 +97,9 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                 label: const Center(child: Text('Vaccin')),
                                 selected: _type == 'vaccine',
                                 onSelected: (selected) {
-                                  if (selected)
+                                  if (selected) {
                                     setState(() => _type = 'vaccine');
+                                  }
                                 },
                               ),
                             ),
@@ -108,8 +109,9 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                 label: const Center(child: Text('Vermifuge')),
                                 selected: _type == 'deworming',
                                 onSelected: (selected) {
-                                  if (selected)
+                                  if (selected) {
                                     setState(() => _type = 'deworming');
+                                  }
                                 },
                               ),
                             ),

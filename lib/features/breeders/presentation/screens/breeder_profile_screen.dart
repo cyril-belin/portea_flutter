@@ -157,8 +157,9 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                           : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected)
+                                      if (selected) {
                                         setState(() => _sex = 'female');
+                                      }
                                     },
                                   ),
                                 ),
@@ -175,8 +176,9 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                           : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected)
+                                      if (selected) {
                                         setState(() => _sex = 'male');
+                                      }
                                     },
                                   ),
                                 ),
@@ -289,8 +291,9 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                           : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected)
+                                      if (selected) {
                                         setState(() => _status = 'active');
+                                      }
                                     },
                                   ),
                                 ),
@@ -309,8 +312,9 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                           : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected)
+                                      if (selected) {
                                         setState(() => _status = 'retired');
+                                      }
                                     },
                                   ),
                                 ),
