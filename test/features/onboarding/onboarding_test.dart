@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
@@ -11,23 +12,26 @@ void main() {
       repository = MockKennelRepository();
     });
 
-    test('should start with null kennel and allow creation and retrieval', () async {
-      var kennel = await repository.getKennel();
-      expect(kennel, isNull);
+    test(
+      'should start with null kennel and allow creation and retrieval',
+      () async {
+        var kennel = await repository.getKennel();
+        expect(kennel, isNull);
 
-      final newKennel = Kennel(
-        name: 'Élevage Test',
-        species: 'dog',
-        createdAt: DateTime.now(),
-      );
+        final newKennel = Kennel(
+          name: 'Élevage Test',
+          species: 'dog',
+          createdAt: DateTime.now(),
+        );
 
-      final created = await repository.createKennel(newKennel);
-      expect(created.name, equals('Élevage Test'));
+        final created = await repository.createKennel(newKennel);
+        expect(created.name, equals('Élevage Test'));
 
-      kennel = await repository.getKennel();
-      expect(kennel, isNotNull);
-      expect(kennel!.name, equals('Élevage Test'));
-    });
+        kennel = await repository.getKennel();
+        expect(kennel, isNotNull);
+        expect(kennel!.name, equals('Élevage Test'));
+      },
+    );
 
     test('should allow updating kennel', () async {
       final newKennel = Kennel(
@@ -37,7 +41,7 @@ void main() {
       );
 
       await repository.createKennel(newKennel);
-      
+
       final updatedKennel = Kennel(
         name: 'Élevage Mis à Jour',
         species: 'cat',
@@ -117,5 +121,84 @@ void main() {
       expect(saved.species, equals('dog'));
       expect(saved.affix, equals('Affix'));
     });
+  });
+
+  group('OnboardingViewModel auth-driven completion', () {
+    /// Simple bool listenable that mimics the AuthenticatedListenable adapter
+    /// used in production, so the VM stays testable without a real client.
+    ValueNotifier<bool> authListenable({bool initial = false}) =>
+        ValueNotifier<bool>(initial);
+
+    /// Pumps the event queue enough times for the VM's async `_onAuthChanged`
+    /// chain (await getKennel + notifyListeners) to settle. The mock repository
+    /// simulates a 200ms network delay, so we wait past that.
+    Future<void> settle() async {
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
+    test('is unauthenticated and incomplete when auth is false', () {
+      final vm = OnboardingViewModel(
+        kennelRepository: MockKennelRepository(),
+        authListenable: authListenable(initial: false),
+      );
+      expect(vm.isAuthenticated, isFalse);
+      expect(vm.isOnboardingCompleted, isFalse);
+      expect(vm.needsKennelSetup, isFalse);
+    });
+
+    test('marks needsKennelSetup when authenticated but no kennel', () async {
+      final vm = OnboardingViewModel(
+        kennelRepository: MockKennelRepository(), // getKennel() -> null
+        authListenable: authListenable(initial: true),
+      );
+      await settle();
+      expect(vm.isAuthenticated, isTrue);
+      expect(vm.isOnboardingCompleted, isFalse);
+      expect(vm.needsKennelSetup, isTrue);
+    });
+
+    test('completes onboarding when authenticated and kennel exists', () async {
+      final repo = MockKennelRepository();
+      await repo.createKennel(
+        Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
+      );
+
+      final vm = OnboardingViewModel(
+        kennelRepository: repo,
+        authListenable: authListenable(initial: true),
+      );
+      await settle();
+
+      expect(vm.isAuthenticated, isTrue);
+      expect(vm.isOnboardingCompleted, isTrue);
+      expect(vm.needsKennelSetup, isFalse);
+      expect(vm.kennel, isNotNull);
+    });
+
+    test(
+      'transitions to completed when auth flips on and kennel exists',
+      () async {
+        final repo = MockKennelRepository();
+        await repo.createKennel(
+          Kennel(
+            name: 'Pre-existing',
+            species: 'cat',
+            createdAt: DateTime.now(),
+          ),
+        );
+        final listenable = authListenable(initial: false);
+        final vm = OnboardingViewModel(
+          kennelRepository: repo,
+          authListenable: listenable,
+        );
+
+        expect(vm.isOnboardingCompleted, isFalse);
+
+        listenable.value = true;
+        await settle();
+
+        expect(vm.isOnboardingCompleted, isTrue);
+      },
+    );
   });
 }
