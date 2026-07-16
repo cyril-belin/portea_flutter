@@ -16,3 +16,4 @@
 - Export courbe de croissance (PNG/PDF)
 - Synchronisation offline résiliente
 - Fiche d'accompagnement chiot (PDF : courbe de croissance + historique soins)
+- Upload photo reproducteur/chiot (image_picker, actuellement photoUrl = URL manuelle)
