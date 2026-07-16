@@ -31,19 +31,19 @@ Permettre à l'éleveur de déclarer une nouvelle portée (mère, père interne 
 ## Reste à faire
 
 ### Backend (portea_server)
-- [ ] Endpoint `litter` : `getLitters(session)`, `getActiveLitter(session)`, `getLitter(session, id)`, `createLitter(session, litter)`, `updateLitter(session, litter)`
-- [ ] Règle serveur : si non-premium et déjà 1 portée active → retourner une erreur métier (pas bloquer via kennelId)
-- [ ] Tous les endpoints filtrent par `kennel.id` dérivé de la session
-- [ ] `serverpod generate`
+- [x] Endpoint `litter` : `getLitters(session)`, `getActiveLitter(session)`, `getLitter(session, id)`, `createLitter(session, litter)`, `updateLitter(session, litter)`
+- [x] Règle serveur : si non-premium et déjà 1 portée active → exception métier typée `ActiveLitterLimitException` (pas bloquer via kennelId)
+- [x] Tous les endpoints filtrent par `kennel.id` dérivé de la session
+- [x] `serverpod generate` + migration `20260716174448461`
 
 ### Data layer
-- [ ] `ServerpodLitterRepository implements ILitterRepository`
-- [ ] Swapper dans `main.dart`
-- [ ] Supprimer le `kennelId: 1` hardcodé → utiliser le kennelId résolu au login
+- [x] `ServerpodLitterRepository implements ILitterRepository`
+- [x] Swapper dans `main.dart`
+- [x] Supprimer le `kennelId: 1` hardcodé → sentinel `0` ignorée par le serveur (kennel dérivé de la session)
 
 ### Logic
-- [ ] `LitterDeclarationViewModel` : lire le `kennelId` depuis un provider ou SharedPreferences (résolu au login via F01)
-- [ ] Gérer l'erreur serveur "portée active déjà existante" (utilisateur gratuit)
+- [x] `LitterDeclarationViewModel` : plus de switch silencieux, expose un `LitterDeclarationOutcome` (success / activeLimitReached / error)
+- [x] Gérer l'erreur serveur `ActiveLitterLimitException` (utilisateur gratuit) → navigation `/premium`, pas de paywall sur erreur générique
 
 ---
 
@@ -71,10 +71,11 @@ Permettre à l'éleveur de déclarer une nouvelle portée (mère, père interne 
 
 ## Critères d'acceptation
 
-- [ ] Déclarer une portée → persistée sur Serverpod.
-- [ ] En gratuit : 2e tentative de déclaration → paywall.
-- [ ] En premium : historique complet visible.
-- [ ] Père interne et saillie externe fonctionnent tous les deux.
-- [ ] `kennelId` hardcodé à 1 → supprimé.
-- [ ] `dart analyze` 0 warning.
-- [ ] `flutter test` vert sur `litters_test.dart`.
+- [x] Déclarer une portée → persistée sur Serverpod.
+- [x] En gratuit : 2e tentative de déclaration → paywall.
+- [ ] En premium : historique complet visible. *(dépends de F10 — Kennel.premiumUntil ; le chemin code est prêt, _isKennelPremium retourne false par défaut)*
+- [x] Père interne et saillie externe fonctionnent tous les deux.
+- [x] `kennelId` hardcodé à 1 → supprimé.
+- [x] `dart analyze` 0 warning.
+- [x] `flutter test` vert sur `litters_test.dart`.
+- [x] Tests d'intégration endpoint verts (auth, persistance, isolation, anti-forge + 2 cas freemium).

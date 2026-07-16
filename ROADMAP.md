@@ -17,3 +17,4 @@
 - Synchronisation offline résiliente
 - Fiche d'accompagnement chiot (PDF : courbe de croissance + historique soins)
 - Upload photo reproducteur/chiot (image_picker, actuellement photoUrl = URL manuelle)
+- UI dédiée de clôture manuelle de portée (updateLitter isActive=false existe côté backend, écran à faire)
