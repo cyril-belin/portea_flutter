@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../../features/dashboard/presentation/view_models/dashboard_view_model.dart';
+import '../../features/breeders/presentation/view_models/breeder_list_view_model.dart';
+import '../../features/litters/presentation/view_models/litters_view_model.dart';
 
 class ShellScaffold extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -15,6 +19,20 @@ class ShellScaffold extends StatelessWidget {
       index,
       initialLocation: index == navigationShell.currentIndex,
     );
+
+    // The app uses a StatefulShellRoute.indexedStack: each tab screen is kept
+    // alive in memory, so initState (and thus its initial data load) runs only
+    // once. When the user comes back to a tab, we refresh its data so it
+    // reflects any change made elsewhere (e.g. a newly declared litter must
+    // appear on the Dashboard without a manual pull-to-refresh).
+    switch (index) {
+      case 0:
+        context.read<DashboardViewModel>().loadDashboard();
+      case 1:
+        context.read<BreederListViewModel>().loadBreeders();
+      case 2:
+        context.read<LittersViewModel>().loadLitters();
+    }
   }
 
   @override
