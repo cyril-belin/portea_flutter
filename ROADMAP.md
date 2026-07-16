@@ -18,3 +18,4 @@
 - Fiche d'accompagnement chiot (PDF : courbe de croissance + historique soins)
 - Upload photo reproducteur/chiot (image_picker, actuellement photoUrl = URL manuelle)
 - UI dédiée de clôture manuelle de portée (updateLitter isActive=false existe côté backend, écran à faire)
+- Incohérence Dashboard « Aucune portée active » vs onglet Portées « Portée de Salsa » : mélange mock/serveur résiduel dans DashboardViewModel/LittersViewModel à investiguer (la persistance backend F03 est OK)
