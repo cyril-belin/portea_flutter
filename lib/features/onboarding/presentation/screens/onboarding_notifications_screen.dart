@@ -26,13 +26,47 @@ class _OnboardingNotificationsScreenState
 
   Future<void> _requestPermission() async {
     setState(() => _requesting = true);
+    PermissionResult? result;
     try {
-      // Real OS permission request. The result (granted/denied) does not
-      // gate onboarding — the user can proceed either way.
-      await context.read<NotificationService>().requestPermission();
+      result = await context.read<NotificationService>().requestPermission();
+      debugPrint('[OnboardingNotifications] result=$result');
+    } catch (e, st) {
+      debugPrint('[OnboardingNotifications] requestPermission threw: $e\n$st');
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Exception'),
+            content: Text('$e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _requesting = false);
+        // DIAGNOSTIC: affiche le résultat avant de continuer. À retirer une
+        // fois le problème de popup résolu.
+        if (result != null) {
+          await showDialog<void>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Diagnostic permission'),
+              content: Text(result.toString()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Continuer'),
+                ),
+              ],
+            ),
+          );
+        }
         _finish();
       }
     }

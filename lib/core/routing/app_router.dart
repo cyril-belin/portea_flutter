@@ -37,23 +37,31 @@ GoRouter createRouter(OnboardingViewModel onboardingViewModel) {
       final loc = state.matchedLocation;
       final isOnboarding = loc.startsWith('/onboarding');
 
+      // Not authenticated: only welcome + login are accessible, everything
+      // else (dashboard, app tabs, setup, notifications) bounces to welcome.
       if (!onboardingViewModel.isAuthenticated) {
-        // Not authenticated: only welcome + login are accessible, everything
-        // else (dashboard, app tabs, setup, notifications) bounces to welcome.
         if (loc == '/onboarding/welcome' || loc == '/onboarding/login') {
           return null;
         }
         return '/onboarding/welcome';
       }
 
-      // Authenticated + kennel exists -> dashboard, never stay on onboarding.
-      if (onboardingViewModel.isOnboardingCompleted && isOnboarding) {
-        return '/dashboard';
+      // Authenticated + onboarding fully completed (kennel + notifications
+      // screen passed) -> dashboard, never stay on onboarding.
+      if (onboardingViewModel.isOnboardingCompleted) {
+        return isOnboarding ? '/dashboard' : null;
       }
 
       // Authenticated but no kennel yet -> kennel setup (skip welcome/login).
       if (onboardingViewModel.needsKennelSetup && loc != '/onboarding/setup') {
         return '/onboarding/setup';
+      }
+
+      // Authenticated, kennel created, but notifications screen not yet passed:
+      // allow /onboarding/notifications, redirect other onboarding screens to it.
+      if (onboardingViewModel.hasKennel && isOnboarding &&
+          loc != '/onboarding/notifications') {
+        return '/onboarding/notifications';
       }
 
       return null;

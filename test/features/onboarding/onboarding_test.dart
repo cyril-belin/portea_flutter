@@ -1,10 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/onboarding/presentation/view_models/onboarding_view_model.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+  });
   group('MockKennelRepository', () {
     late MockKennelRepository repository;
 
@@ -93,9 +98,9 @@ void main() {
       expect(viewModel.affix, equals('des Terres Dorées'));
     });
 
-    test('completeOnboarding marks completion', () {
+    test('completeOnboarding marks completion', () async {
       expect(viewModel.isOnboardingCompleted, isFalse);
-      viewModel.completeOnboarding();
+      await viewModel.completeOnboarding();
       expect(viewModel.isOnboardingCompleted, isTrue);
     });
 
@@ -114,6 +119,9 @@ void main() {
       final result = await viewModel.createKennel();
       expect(result, isTrue);
       expect(viewModel.isLoading, isFalse);
+      // Kennel created but onboarding NOT complete until notifications screen.
+      expect(viewModel.hasKennel, isTrue);
+      expect(viewModel.isOnboardingCompleted, isFalse);
 
       final saved = await repository.getKennel();
       expect(saved, isNotNull);
@@ -124,6 +132,12 @@ void main() {
   });
 
   group('OnboardingViewModel auth-driven completion', () {
+    setUp(() {
+      // Reset SharedPreferences before each test to avoid cross-test
+      // contamination of the persisted onboarding-completed flag.
+      SharedPreferences.setMockInitialValues({});
+    });
+
     /// Simple bool listenable that mimics the AuthenticatedListenable adapter
     /// used in production, so the VM stays testable without a real client.
     ValueNotifier<bool> authListenable({bool initial = false}) =>
@@ -157,7 +171,10 @@ void main() {
       expect(vm.needsKennelSetup, isTrue);
     });
 
-    test('completes onboarding when authenticated and kennel exists', () async {
+    test('cold start with kennel and completed flag -> dashboard ready',
+        () async {
+      // Simulate a returning user: kennel exists AND onboarding was completed.
+      SharedPreferences.setMockInitialValues({'onboarding_completed': true});
       final repo = MockKennelRepository();
       await repo.createKennel(
         Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
@@ -170,14 +187,61 @@ void main() {
       await settle();
 
       expect(vm.isAuthenticated, isTrue);
+      expect(vm.hasKennel, isTrue);
       expect(vm.isOnboardingCompleted, isTrue);
       expect(vm.needsKennelSetup, isFalse);
-      expect(vm.kennel, isNotNull);
+    });
+
+    test('kennel exists but onboarding not finished -> needs notifications', () async {
+      // Mid-flow: kennel created but notifications screen not yet passed.
+      SharedPreferences.setMockInitialValues({});
+      final repo = MockKennelRepository();
+      await repo.createKennel(
+        Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
+      );
+
+      final vm = OnboardingViewModel(
+        kennelRepository: repo,
+        authListenable: authListenable(initial: true),
+      );
+      await settle();
+
+      expect(vm.isAuthenticated, isTrue);
+      expect(vm.hasKennel, isTrue);
+      expect(vm.isOnboardingCompleted, isFalse); // must still pass notifications
+      expect(vm.needsKennelSetup, isFalse); // kennel already exists
+    });
+
+    test('completeOnboarding persists and survives a new instance', () async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = MockKennelRepository();
+      await repo.createKennel(
+        Kennel(name: 'Existing', species: 'cat', createdAt: DateTime.now()),
+      );
+
+      final vm = OnboardingViewModel(
+        kennelRepository: repo,
+        authListenable: authListenable(initial: true),
+      );
+      await settle();
+      expect(vm.isOnboardingCompleted, isFalse);
+
+      await vm.completeOnboarding();
+      expect(vm.isOnboardingCompleted, isTrue);
+
+      // A fresh view model (simulating cold start) reads the persisted flag.
+      final vm2 = OnboardingViewModel(
+        kennelRepository: repo,
+        authListenable: authListenable(initial: true),
+      );
+      await settle();
+      expect(vm2.isOnboardingCompleted, isTrue);
     });
 
     test(
-      'transitions to completed when auth flips on and kennel exists',
+      'transitions to completed when auth flips on and onboarding was completed',
       () async {
+        SharedPreferences.setMockInitialValues({'onboarding_completed': true});
         final repo = MockKennelRepository();
         await repo.createKennel(
           Kennel(

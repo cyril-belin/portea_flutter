@@ -1,18 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:portea_client/portea_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/repositories/i_kennel_repository.dart';
 
 /// Drives the onboarding flow and its routing.
 ///
-/// Onboarding is considered complete only when the user is authenticated AND
-/// owns a kennel on the server. The auth state is observed via the injected
-/// [authListenable]; whenever it changes, the view model re-resolves the
-/// kennel from the server and notifies its listeners (the go_router
-/// `refreshListenable` reacts and redirects accordingly).
+/// Two distinct concepts:
+/// - [hasKennel]: a kennel exists on the server (drives setup vs notifications).
+/// - [isOnboardingCompleted]: the user has gone through the full flow,
+///   including the notifications screen. Persisted via SharedPreferences so a
+///   cold start after onboarding goes straight to the dashboard.
 ///
-/// Depending on the global `client` directly would break unit testing, so the
-/// auth state is injected as a [ValueListenable].
+/// The auth state is injected as a [ValueListenable] to keep the view model
+/// testable without a real client.
 class OnboardingViewModel extends ChangeNotifier {
   OnboardingViewModel({
     required IKennelRepository kennelRepository,
@@ -20,7 +21,6 @@ class OnboardingViewModel extends ChangeNotifier {
   }) : _kennelRepository = kennelRepository,
        _authListenable = authListenable {
     _authListenable?.addListener(_onAuthChanged);
-    // Resolve the initial state synchronously from the listenable's value.
     if (_authListenable?.value ?? false) {
       _onAuthChanged();
     }
@@ -29,21 +29,26 @@ class OnboardingViewModel extends ChangeNotifier {
   final IKennelRepository _kennelRepository;
   final ValueListenable<bool>? _authListenable;
 
+  static const _onboardingCompletedKey = 'onboarding_completed';
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
   /// Whether the user is currently authenticated.
   bool get isAuthenticated => _authListenable?.value ?? false;
 
-  /// True only once the user is authenticated AND a kennel exists on the server.
+  /// A kennel exists on the server for this user.
+  bool _hasKennel = false;
+  bool get hasKennel => _hasKennel;
+
+  /// True only once the full onboarding flow is done (kennel created AND
+  /// notifications screen passed). Persisted across cold starts.
   bool _isOnboardingCompleted = false;
   bool get isOnboardingCompleted => _isOnboardingCompleted;
 
-  /// True when the user is authenticated but has not created a kennel yet.
-  /// Drives the redirect to Kennel Setup.
-  bool get needsKennelSetup => isAuthenticated && !_isOnboardingCompleted;
+  /// Authenticated, no kennel yet -> redirect to Kennel Setup.
+  bool get needsKennelSetup => isAuthenticated && !_hasKennel;
 
-  /// The resolved kennel (null until fetched from the server).
   Kennel? _kennel;
   Kennel? get kennel => _kennel;
 
@@ -54,7 +59,7 @@ class OnboardingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _species = 'dog'; // 'dog' | 'cat'
+  String _species = 'dog';
   String get species => _species;
   set species(String value) {
     _species = value;
@@ -68,10 +73,11 @@ class OnboardingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Called when the auth state (or the view model itself) changes. Resolves
-  /// the kennel from the server and derives [isOnboardingCompleted].
+  /// Called when the auth state changes. Resolves the kennel from the server
+  /// and reads the persisted onboarding-completed flag.
   void _onAuthChanged() async {
     if (!isAuthenticated) {
+      _hasKennel = false;
       _isOnboardingCompleted = false;
       _kennel = null;
       notifyListeners();
@@ -83,9 +89,12 @@ class OnboardingViewModel extends ChangeNotifier {
 
     try {
       _kennel = await _kennelRepository.getKennel();
-      _isOnboardingCompleted = _kennel != null;
+      _hasKennel = _kennel != null;
+      final prefs = await SharedPreferences.getInstance();
+      _isOnboardingCompleted = prefs.getBool(_onboardingCompletedKey) ?? false;
     } catch (_) {
       _kennel = null;
+      _hasKennel = false;
       _isOnboardingCompleted = false;
     } finally {
       _isLoading = false;
@@ -93,8 +102,12 @@ class OnboardingViewModel extends ChangeNotifier {
     }
   }
 
-  void completeOnboarding() {
+  /// Marks onboarding as fully complete (called from the notifications screen).
+  /// Persisted so a cold start after onboarding goes straight to the dashboard.
+  Future<void> completeOnboarding() async {
     _isOnboardingCompleted = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingCompletedKey, true);
     notifyListeners();
   }
 
@@ -112,7 +125,9 @@ class OnboardingViewModel extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
       _kennel = await _kennelRepository.createKennel(kennel);
-      _isOnboardingCompleted = _kennel != null;
+      _hasKennel = _kennel != null;
+      // NOTE: onboarding is NOT complete here — the user must still pass the
+      // notifications screen, which calls completeOnboarding().
       return true;
     } catch (_) {
       return false;
