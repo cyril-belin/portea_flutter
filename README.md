@@ -45,7 +45,7 @@ UI puis branchement au backend Serverpod.
 |-------------------------------------|---------------------|
 | F01 — Onboarding (auth + élevage)   | Backend Serverpod   |
 | F02 — Reproducteurs                 | Backend Serverpod   |
-| F03 — Portées                       | UI faite, mock      |
+| F03 — Portées (limite freemium)     | Backend Serverpod   |
 | F04 — Chiots                        | UI faite, mock      |
 | F05 — Pesées                        | UI faite, mock      |
 | F06 — Soins                         | UI faite, mock      |
@@ -54,8 +54,11 @@ UI puis branchement au backend Serverpod.
 | F09 — Documents                     | UI faite, mock      |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
 
-Les fonctionnalités « UI faite, mock » s'appuient sur un `MockDatabase` en
-mémoire : l'interface est navigable, les données ne sont pas persistées.
+Les fonctionnalités branchées au backend Serverpod (F01–F03) persistent les
+données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
+utilisateur, anti-forging du `kennelId`). Les fonctionnalités « UI faite, mock »
+s'appuient sur un `MockDatabase` en mémoire : l'interface est navigable, les
+données ne sont pas persistées.
 
 ---
 
@@ -65,7 +68,9 @@ mémoire : l'interface est navigable, les données ne sont pas persistées.
 
 - **Flutter SDK** 3.38+
 - **Serverpod CLI** (`dart pub global activate serverpod_cli`)
-- **Docker** (base PostgreSQL pour le backend)
+
+> `serverpod start` embarque et lance un PostgreSQL dédié (data sous
+> `portea_server/.serverpod/`) : aucun Docker externe requis en développement.
 
 ### Installation
 
@@ -81,7 +86,7 @@ flutter pub get
 ### Lancement
 
 ```bash
-# Démarre le backend Serverpod (PostgreSQL via Docker) + l'app Flutter
+# Démarre le backend Serverpod (PostgreSQL embarqué) + l'app Flutter
 # avec hot reload sur les deux. À lancer depuis la racine du monorepo.
 serverpod start
 ```
