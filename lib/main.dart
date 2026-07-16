@@ -146,19 +146,22 @@ void main() async {
           update: (context, repo, prev) =>
               prev ?? BreederProfileViewModel(breederRepository: repo),
         ),
-        ChangeNotifierProxyProvider2<
+        ChangeNotifierProxyProvider3<
           ILitterRepository,
+          IBreederRepository,
           ISettingsRepository,
           LittersViewModel
         >(
           create: (context) => LittersViewModel(
             litterRepository: context.read<ILitterRepository>(),
+            breederRepository: context.read<IBreederRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
           ),
-          update: (context, litterRepo, settingsRepo, prev) =>
+          update: (context, litterRepo, breederRepo, settingsRepo, prev) =>
               prev ??
               LittersViewModel(
                 litterRepository: litterRepo,
+                breederRepository: breederRepo,
                 settingsRepository: settingsRepo,
               ),
         ),

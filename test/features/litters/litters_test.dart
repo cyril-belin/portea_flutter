@@ -75,15 +75,18 @@ void main() {
 
   group('LittersViewModel', () {
     late MockLitterRepository litterRepo;
+    late MockBreederRepository breederRepo;
     late MockSettingsRepository settingsRepo;
     late LittersViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
       litterRepo = MockLitterRepository();
+      breederRepo = MockBreederRepository();
       settingsRepo = MockSettingsRepository();
       viewModel = LittersViewModel(
         litterRepository: litterRepo,
+        breederRepository: breederRepo,
         settingsRepository: settingsRepo,
       );
     });
