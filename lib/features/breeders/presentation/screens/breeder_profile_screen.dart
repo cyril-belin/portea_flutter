@@ -145,15 +145,21 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                               children: [
                                 Expanded(
                                   child: ChoiceChip(
-                                    label: const Center(child: Text('Femelle ♀')),
+                                    label: const Center(
+                                      child: Text('Femelle ♀'),
+                                    ),
                                     selected: _sex == 'female',
                                     selectedColor: AppColors.female,
                                     checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: _sex == 'female' ? Colors.white : null,
+                                      color: _sex == 'female'
+                                          ? Colors.white
+                                          : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected) setState(() => _sex = 'female');
+                                      if (selected) {
+                                        setState(() => _sex = 'female');
+                                      }
                                     },
                                   ),
                                 ),
@@ -165,10 +171,14 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                     selectedColor: AppColors.male,
                                     checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: _sex == 'male' ? Colors.white : null,
+                                      color: _sex == 'male'
+                                          ? Colors.white
+                                          : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected) setState(() => _sex = 'male');
+                                      if (selected) {
+                                        setState(() => _sex = 'male');
+                                      }
                                     },
                                   ),
                                 ),
@@ -194,7 +204,8 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                   labelText: 'Date de naissance',
                                 ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       _birthDate == null
@@ -275,25 +286,35 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                     selectedColor: AppColors.primary,
                                     checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: _status == 'active' ? Colors.white : null,
+                                      color: _status == 'active'
+                                          ? Colors.white
+                                          : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected) setState(() => _status = 'active');
+                                      if (selected) {
+                                        setState(() => _status = 'active');
+                                      }
                                     },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: ChoiceChip(
-                                    label: const Center(child: Text('Retraité')),
+                                    label: const Center(
+                                      child: Text('Retraité'),
+                                    ),
                                     selected: _status == 'retired',
                                     selectedColor: AppColors.primary,
                                     checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: _status == 'retired' ? Colors.white : null,
+                                      color: _status == 'retired'
+                                          ? Colors.white
+                                          : null,
                                     ),
                                     onSelected: (selected) {
-                                      if (selected) setState(() => _status = 'retired');
+                                      if (selected) {
+                                        setState(() => _status = 'retired');
+                                      }
                                     },
                                   ),
                                 ),
@@ -305,7 +326,8 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                             ElevatedButton(
                               onPressed: () async {
                                 if (_formKey.currentState!.validate()) {
-                                  final listVm = context.read<BreederListViewModel>();
+                                  final listVm = context
+                                      .read<BreederListViewModel>();
                                   final goRouter = GoRouter.of(context);
                                   final success = await viewModel.saveBreeder(
                                     name: _nameController.text.trim(),

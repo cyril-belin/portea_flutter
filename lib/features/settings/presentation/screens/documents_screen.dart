@@ -40,7 +40,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Génération de documents', style: AppTextStyles.sectionTitle),
+                Text(
+                  'Génération de documents',
+                  style: AppTextStyles.sectionTitle,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Générez instantanément vos PDF officiels pré-remplis.',
@@ -51,7 +54,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 _buildDocumentTile(
                   context: context,
                   title: 'Registre des entrées & sorties (Portée)',
-                  description: 'Registre d\'élevage officiel requis par la DDPP.',
+                  description:
+                      'Registre d\'élevage officiel requis par la DDPP.',
                   isPremium: isPremium,
                 ),
                 const SizedBox(height: 12),
@@ -66,7 +70,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 _buildDocumentTile(
                   context: context,
                   title: 'Fiche d\'accompagnement du chiot',
-                  description: 'Conseils de croissance et historique des pesées.',
+                  description:
+                      'Conseils de croissance et historique des pesées.',
                   isPremium: isPremium,
                 ),
               ],
@@ -112,8 +117,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           color: isPremium
               ? AppColors.error
               : (Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.textSecondary),
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary),
           size: 36,
         ),
         title: Text(

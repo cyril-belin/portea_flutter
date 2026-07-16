@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'shell_scaffold.dart';
 import '../../features/onboarding/presentation/screens/onboarding_welcome_screen.dart';
+import '../../features/onboarding/presentation/screens/sign_in_screen.dart';
 import '../../features/onboarding/presentation/screens/kennel_setup_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_notifications_screen.dart';
 import '../../features/onboarding/presentation/view_models/onboarding_view_model.dart';
@@ -33,15 +34,37 @@ GoRouter createRouter(OnboardingViewModel onboardingViewModel) {
     initialLocation: '/dashboard',
     refreshListenable: onboardingViewModel,
     redirect: (context, state) {
-      final isOnboarding = state.matchedLocation.startsWith('/onboarding');
-      final isCompleted = onboardingViewModel.isOnboardingCompleted;
+      final loc = state.matchedLocation;
+      final isOnboarding = loc.startsWith('/onboarding');
 
-      if (!isCompleted && !isOnboarding) {
+      // Not authenticated: only welcome + login are accessible, everything
+      // else (dashboard, app tabs, setup, notifications) bounces to welcome.
+      if (!onboardingViewModel.isAuthenticated) {
+        if (loc == '/onboarding/welcome' || loc == '/onboarding/login') {
+          return null;
+        }
         return '/onboarding/welcome';
       }
-      if (isCompleted && isOnboarding) {
-        return '/dashboard';
+
+      // Authenticated + onboarding fully completed (kennel + notifications
+      // screen passed) -> dashboard, never stay on onboarding.
+      if (onboardingViewModel.isOnboardingCompleted) {
+        return isOnboarding ? '/dashboard' : null;
       }
+
+      // Authenticated but no kennel yet -> kennel setup (skip welcome/login).
+      if (onboardingViewModel.needsKennelSetup && loc != '/onboarding/setup') {
+        return '/onboarding/setup';
+      }
+
+      // Authenticated, kennel created, but notifications screen not yet passed:
+      // allow /onboarding/notifications, redirect other onboarding screens to it.
+      if (onboardingViewModel.hasKennel &&
+          isOnboarding &&
+          loc != '/onboarding/notifications') {
+        return '/onboarding/notifications';
+      }
+
       return null;
     },
     routes: [
@@ -49,6 +72,10 @@ GoRouter createRouter(OnboardingViewModel onboardingViewModel) {
       GoRoute(
         path: '/onboarding/welcome',
         builder: (context, state) => const OnboardingWelcomeScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/login',
+        builder: (context, state) => const SignInScreen(),
       ),
       GoRoute(
         path: '/onboarding/setup',

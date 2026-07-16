@@ -39,8 +39,22 @@ void main() {
       expect(listBefore.length, equals(3));
 
       final batch = <Puppy>[
-        Puppy(id: 10, litterId: 1, name: 'Nouveau Chiot 1', sex: 'female', birthWeight: 310, status: 'available'),
-        Puppy(id: 11, litterId: 1, name: 'Nouveau Chiot 2', sex: 'male', birthWeight: 320, status: 'available'),
+        Puppy(
+          id: 10,
+          litterId: 1,
+          name: 'Nouveau Chiot 1',
+          sex: 'female',
+          birthWeight: 310,
+          status: 'available',
+        ),
+        Puppy(
+          id: 11,
+          litterId: 1,
+          name: 'Nouveau Chiot 2',
+          sex: 'male',
+          birthWeight: 320,
+          status: 'available',
+        ),
       ];
 
       await repository.createPuppiesBatch(batch);
@@ -93,8 +107,16 @@ void main() {
     });
 
     test('addWeighings adds multiple entries', () async {
-      final entry1 = WeighingEntry(puppyId: 1, weighedAt: DateTime.now(), weightGrams: 2100);
-      final entry2 = WeighingEntry(puppyId: 2, weighedAt: DateTime.now(), weightGrams: 1500);
+      final entry1 = WeighingEntry(
+        puppyId: 1,
+        weighedAt: DateTime.now(),
+        weightGrams: 2100,
+      );
+      final entry2 = WeighingEntry(
+        puppyId: 2,
+        weighedAt: DateTime.now(),
+        weightGrams: 1500,
+      );
 
       await repository.addWeighings([entry1, entry2]);
 
@@ -124,7 +146,10 @@ void main() {
 
     test('getUpcomingReminders returns reminders in future', () async {
       final reminders = await repository.getUpcomingReminders(5);
-      expect(reminders.length, equals(1)); // Milbemax deworming has reminder in 7 days
+      expect(
+        reminders.length,
+        equals(1),
+      ); // Milbemax deworming has reminder in 7 days
     });
 
     test('addCareEntry adds care entry to DB', () async {
@@ -300,14 +325,17 @@ void main() {
       expect(updated.buyerAddress, equals('Lyon'));
     });
 
-    test('addSingleWeight appends weight entry and reloads weighings', () async {
-      await viewModel.loadPuppyFile(1);
-      expect(viewModel.weighings.length, equals(4));
+    test(
+      'addSingleWeight appends weight entry and reloads weighings',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        expect(viewModel.weighings.length, equals(4));
 
-      await viewModel.addSingleWeight(1950.0);
-      expect(viewModel.weighings.length, equals(5));
-      expect(viewModel.weighings.last.weightGrams, equals(1950.0));
-    });
+        await viewModel.addSingleWeight(1950.0);
+        expect(viewModel.weighings.length, equals(5));
+        expect(viewModel.weighings.last.weightGrams, equals(1950.0));
+      },
+    );
   });
 
   group('AddCareViewModel', () {
@@ -353,7 +381,10 @@ void main() {
 
       // Verify litter care entry is created
       final litterCare = await careRepo.getCareEntries(litterId: 1);
-      expect(litterCare.length, equals(2)); // Milbemax Chiot (from DB init) + Milbemax
+      expect(
+        litterCare.length,
+        equals(2),
+      ); // Milbemax Chiot (from DB init) + Milbemax
 
       // Verify puppy care entry is created for Puppy 1, 2, and 3
       final puppy1Care = await careRepo.getCareEntries(puppyId: 1);

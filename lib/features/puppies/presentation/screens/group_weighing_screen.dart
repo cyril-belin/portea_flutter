@@ -117,15 +117,19 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
                                 padding: const EdgeInsets.all(16.0),
                                 gridDelegate:
                                     const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 500,
-                                  mainAxisExtent: 88,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 12,
-                                ),
+                                      maxCrossAxisExtent: 500,
+                                      mainAxisExtent: 88,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 12,
+                                    ),
                                 itemCount: viewModel.items.length,
                                 itemBuilder: (context, index) {
                                   final item = viewModel.items[index];
-                                  return _buildWeighingRow(index, item, viewModel);
+                                  return _buildWeighingRow(
+                                    index,
+                                    item,
+                                    viewModel,
+                                  );
                                 },
                               );
                             } else {
@@ -134,7 +138,11 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
                                 itemCount: viewModel.items.length,
                                 itemBuilder: (context, index) {
                                   final item = viewModel.items[index];
-                                  return _buildWeighingRow(index, item, viewModel);
+                                  return _buildWeighingRow(
+                                    index,
+                                    item,
+                                    viewModel,
+                                  );
                                 },
                               );
                             }
@@ -148,24 +156,34 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surface,
                           border: Border(
-                            top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5),
+                            top: BorderSide(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.outlineVariant,
+                              width: 0.5,
+                            ),
                           ),
                         ),
                         child: ElevatedButton(
                           onPressed: () async {
                             if (_formKey.currentState!.validate()) {
-                              final litterDetailVm =
-                                  context.read<LitterDetailViewModel>();
+                              final litterDetailVm = context
+                                  .read<LitterDetailViewModel>();
                               final goRouter = GoRouter.of(context);
                               final messenger = ScaffoldMessenger.of(context);
-                              final success = await viewModel.saveWeighingSession();
+                              final success = await viewModel
+                                  .saveWeighingSession();
                               if (success && mounted) {
                                 // Refresh litter detail
-                                litterDetailVm.loadLitterDetail(widget.litterId);
+                                litterDetailVm.loadLitterDetail(
+                                  widget.litterId,
+                                );
                                 goRouter.pop();
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('Pesée de la portée enregistrée'),
+                                    content: Text(
+                                      'Pesée de la portée enregistrée',
+                                    ),
                                   ),
                                 );
                               }

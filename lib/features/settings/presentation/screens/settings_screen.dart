@@ -103,8 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       k.ownerName = _ownerController.text.trim().isEmpty
                           ? null
                           : _ownerController.text.trim();
-                      final dashboardVm =
-                          context.read<DashboardViewModel>();
+                      final dashboardVm = context.read<DashboardViewModel>();
                       final messenger = ScaffoldMessenger.of(context);
                       await viewModel.updateKennel(k);
 
@@ -180,9 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               size: 32,
             ),
             title: Text(
-              viewModel.isPremium
-                  ? 'Portea Premium Actif'
-                  : 'Version Gratuite',
+              viewModel.isPremium ? 'Portea Premium Actif' : 'Version Gratuite',
               style: AppTextStyles.body.copyWith(
                 fontWeight: FontWeight.bold,
               ),

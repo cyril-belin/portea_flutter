@@ -96,7 +96,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               'Déclarez votre portée ou configurez vos reproducteurs.',
                           primaryActionLabel: 'Déclarer ma première portée',
                           onPrimaryAction: () => context.push('/litters/new'),
-                          secondaryActionLabel: 'Ajouter mes reproducteurs d\'abord',
+                          secondaryActionLabel:
+                              'Ajouter mes reproducteurs d\'abord',
                           onSecondaryAction: () => context.go('/breeders'),
                         )
                       else ...[
@@ -175,7 +176,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 flex: 6,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: leftColumnChildren,
                                 ),
                               ),
@@ -183,7 +185,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 flex: 4,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: rightColumnChildren,
                                 ),
                               ),
@@ -385,7 +388,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+            color: Theme.of(
+              context,
+            ).colorScheme.outlineVariant.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(

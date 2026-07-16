@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
+import 'core/auth/authenticated_listenable.dart';
+import 'core/notifications/notification_service.dart';
 
 // Import repositories
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
-import 'features/onboarding/data/repositories/mock_kennel_repository.dart';
+import 'features/onboarding/data/repositories/serverpod_kennel_repository.dart';
 import 'features/breeders/domain/repositories/i_breeder_repository.dart';
 import 'features/breeders/data/repositories/mock_breeder_repository.dart';
 import 'features/litters/domain/repositories/i_litter_repository.dart';
@@ -56,8 +58,14 @@ void main() async {
 
   client.auth.initialize();
 
+  // Expose the auth state as a simple bool listenable so view models stay
+  // decoupled from Serverpod's auth session types.
+  final authListenable = AuthenticatedListenable(
+    client.auth.authInfoListenable,
+  );
+
   // Create core repositories
-  final kennelRepository = MockKennelRepository();
+  final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = MockBreederRepository();
   final litterRepository = MockLitterRepository();
   final puppyRepository = MockPuppyRepository();
@@ -65,9 +73,13 @@ void main() async {
   final careRepository = MockCareRepository();
   final settingsRepository = MockSettingsRepository();
 
+  // Core services
+  final notificationService = NotificationService();
+
   // Pre-instantiate OnboardingViewModel because GoRouter needs it for refreshListenable
   final onboardingViewModel = OnboardingViewModel(
     kennelRepository: kennelRepository,
+    authListenable: authListenable,
   );
 
   runApp(
@@ -81,6 +93,9 @@ void main() async {
         Provider<IWeighingRepository>.value(value: weighingRepository),
         Provider<ICareRepository>.value(value: careRepository),
         Provider<ISettingsRepository>.value(value: settingsRepository),
+
+        // Core services
+        Provider<NotificationService>.value(value: notificationService),
 
         // View models injection
         ChangeNotifierProvider<OnboardingViewModel>.value(
@@ -251,10 +266,11 @@ void main() async {
           )..loadSettings(),
           update: (context, kennel, settings, prev) =>
               prev ??
-              SettingsViewModel(
-                kennelRepository: kennel,
-                settingsRepository: settings,
-              )..loadSettings(),
+                    SettingsViewModel(
+                      kennelRepository: kennel,
+                      settingsRepository: settings,
+                    )
+                ..loadSettings(),
         ),
       ],
       child: const MyApp(),

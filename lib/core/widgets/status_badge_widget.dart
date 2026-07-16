@@ -23,7 +23,9 @@ class StatusBadgeWidget extends StatelessWidget {
         bg = isDark
             ? AppColors.statusAvailable.withValues(alpha: 0.15)
             : AppColors.statusAvailableBg;
-        text = isDark ? AppColors.statusAvailable : AppColors.statusAvailableText;
+        text = isDark
+            ? AppColors.statusAvailable
+            : AppColors.statusAvailableText;
         label = 'Disponible';
         break;
       case 'reserved':

@@ -73,7 +73,9 @@ class AppTheme {
           color: AppColors.textSecondary,
         ),
         selectedIconTheme: const IconThemeData(color: AppColors.primary),
-        unselectedIconTheme: const IconThemeData(color: AppColors.textSecondary),
+        unselectedIconTheme: const IconThemeData(
+          color: AppColors.textSecondary,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -201,7 +203,9 @@ class AppTheme {
           color: AppColors.darkTextSecondary,
         ),
         selectedIconTheme: const IconThemeData(color: AppColors.primary),
-        unselectedIconTheme: const IconThemeData(color: AppColors.darkTextSecondary),
+        unselectedIconTheme: const IconThemeData(
+          color: AppColors.darkTextSecondary,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
