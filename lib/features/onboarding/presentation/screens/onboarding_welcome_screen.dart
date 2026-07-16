@@ -48,7 +48,7 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                   ),
                   const Spacer(),
                   ElevatedButton(
-                    onPressed: () => context.go('/onboarding/setup'),
+                    onPressed: () => context.go('/onboarding/login'),
                     child: const Text('Commencer'),
                   ),
                 ],

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
+import 'core/auth/authenticated_listenable.dart';
 
 // Import repositories
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
@@ -56,6 +57,12 @@ void main() async {
 
   client.auth.initialize();
 
+  // Expose the auth state as a simple bool listenable so view models stay
+  // decoupled from Serverpod's auth session types.
+  final authListenable = AuthenticatedListenable(
+    client.auth.authInfoListenable,
+  );
+
   // Create core repositories
   final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = MockBreederRepository();
@@ -68,6 +75,7 @@ void main() async {
   // Pre-instantiate OnboardingViewModel because GoRouter needs it for refreshListenable
   final onboardingViewModel = OnboardingViewModel(
     kennelRepository: kennelRepository,
+    authListenable: authListenable,
   );
 
   runApp(
