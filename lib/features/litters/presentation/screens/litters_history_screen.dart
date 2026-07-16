@@ -57,9 +57,15 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
                       children: [
                         // Active litter card (if any)
                         if (viewModel.activeLitter != null) ...[
-                          Text('Portée active', style: AppTextStyles.sectionTitle),
+                          Text(
+                            'Portée active',
+                            style: AppTextStyles.sectionTitle,
+                          ),
                           const SizedBox(height: 8),
-                          _buildActiveLitterCard(context, viewModel.activeLitter!),
+                          _buildActiveLitterCard(
+                            context,
+                            viewModel.activeLitter!,
+                          ),
                           const SizedBox(height: 24),
                         ],
 
@@ -67,7 +73,10 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Historique', style: AppTextStyles.sectionTitle),
+                            Text(
+                              'Historique',
+                              style: AppTextStyles.sectionTitle,
+                            ),
                             if (!viewModel.isPremium)
                               const Row(
                                 children: [
@@ -122,11 +131,11 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
                                   physics: const NeverScrollableScrollPhysics(),
                                   gridDelegate:
                                       const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 450,
-                                    mainAxisExtent: 88,
-                                    crossAxisSpacing: 12,
-                                    mainAxisSpacing: 8,
-                                  ),
+                                        maxCrossAxisExtent: 450,
+                                        mainAxisExtent: 88,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 8,
+                                      ),
                                   itemCount: viewModel.pastLitters.length,
                                   itemBuilder: (context, index) {
                                     final litter = viewModel.pastLitters[index];
@@ -139,14 +148,17 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
                                 );
                               } else {
                                 return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: viewModel.pastLitters.map(
-                                    (litter) => _buildHistoryLitterCard(
-                                      context,
-                                      litter,
-                                      viewModel.isPremium,
-                                    ),
-                                  ).toList(),
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: viewModel.pastLitters
+                                      .map(
+                                        (litter) => _buildHistoryLitterCard(
+                                          context,
+                                          litter,
+                                          viewModel.isPremium,
+                                        ),
+                                      )
+                                      .toList(),
                                 );
                               }
                             },
@@ -230,16 +242,16 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           leading: CircleAvatar(
             backgroundColor: isPremium
                 ? (Theme.of(context).brightness == Brightness.dark
-                    ? AppColors.primaryDark.withValues(alpha: 0.25)
-                    : AppColors.primaryLight)
+                      ? AppColors.primaryDark.withValues(alpha: 0.25)
+                      : AppColors.primaryLight)
                 : Theme.of(context).colorScheme.outlineVariant,
             child: Icon(
               isPremium ? Icons.folder_zip_rounded : Icons.lock_rounded,
               color: isPremium
                   ? AppColors.primary
                   : (Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.textSecondary),
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary),
             ),
           ),
           title: Text(

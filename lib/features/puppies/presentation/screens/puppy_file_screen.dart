@@ -318,8 +318,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: vm.weighings.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1),
+              separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final w = vm.weighings[index];
                 return ListTile(
@@ -520,7 +519,9 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(

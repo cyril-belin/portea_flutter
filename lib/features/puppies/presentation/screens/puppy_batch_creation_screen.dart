@@ -52,11 +52,11 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                                 padding: const EdgeInsets.all(16.0),
                                 gridDelegate:
                                     const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 500,
-                                  mainAxisExtent: 160,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
-                                ),
+                                      maxCrossAxisExtent: 500,
+                                      mainAxisExtent: 160,
+                                      crossAxisSpacing: 16,
+                                      mainAxisSpacing: 16,
+                                    ),
                                 itemCount: viewModel.items.length,
                                 itemBuilder: (context, index) {
                                   final item = viewModel.items[index];
@@ -219,7 +219,12 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+            width: 0.5,
+          ),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

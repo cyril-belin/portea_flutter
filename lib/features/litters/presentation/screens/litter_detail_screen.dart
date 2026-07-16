@@ -136,8 +136,7 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
             context: context,
             icon: Icons.description_rounded,
             label: 'Docs',
-            onTap: () =>
-                context.push('/litters/${litter.id}/documents'),
+            onTap: () => context.push('/litters/${litter.id}/documents'),
           ),
         ),
       ],
@@ -226,8 +225,7 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      onPressed: () =>
-          context.push('/litters/${litter.id}/puppies/batch'),
+      onPressed: () => context.push('/litters/${litter.id}/puppies/batch'),
       icon: const Icon(Icons.add_rounded, color: AppColors.primary),
       label: const Text(
         'Ajouter / Editer les chiots',
@@ -246,7 +244,10 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1100),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 12.0,
+            ),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth > 800) {
@@ -318,7 +319,10 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: Theme.of(context).colorScheme.surface,
         foregroundColor: AppColors.primary,
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 0.5,
+        ),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         padding: const EdgeInsets.symmetric(vertical: 12),

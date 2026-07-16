@@ -54,11 +54,11 @@ class _BreedersListScreenState extends State<BreedersListScreen> {
                               ),
                               gridDelegate:
                                   const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 400,
-                                mainAxisExtent: 88,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 8,
-                              ),
+                                    maxCrossAxisExtent: 400,
+                                    mainAxisExtent: 88,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 8,
+                                  ),
                               itemCount: viewModel.breeders.length,
                               itemBuilder: (context, index) {
                                 final breeder = viewModel.breeders[index];
