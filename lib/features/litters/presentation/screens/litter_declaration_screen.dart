@@ -223,7 +223,8 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                               final littersVm = context
                                   .read<LittersViewModel>();
                               final goRouter = GoRouter.of(context);
-                              final litter = await viewModel.declareLitter(
+                              final messenger = ScaffoldMessenger.of(context);
+                              final result = await viewModel.declareLitter(
                                 motherId: _selectedMotherId!,
                                 fatherId: _isExternalSire
                                     ? null
@@ -237,13 +238,30 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                                 birthDate: _birthDate,
                               );
 
-                              if (litter != null && mounted) {
-                                // Refresh litters list
-                                littersVm.loadLitters();
-                                // Navigate to batch creation screen for this litter
-                                goRouter.go(
-                                  '/litters/${litter.id}/puppies/batch',
-                                );
+                              if (!mounted) return;
+
+                              switch (result.outcome) {
+                                case LitterDeclarationOutcome.success:
+                                  // Refresh litters list
+                                  littersVm.loadLitters();
+                                  // Navigate to batch creation screen for this litter
+                                  goRouter.go(
+                                    '/litters/${result.litter!.id}/puppies/batch',
+                                  );
+                                case LitterDeclarationOutcome
+                                    .activeLimitReached:
+                                  // Freemium limit reached — open the paywall
+                                  // (NOT a generic error message).
+                                  goRouter.go('/premium');
+                                case LitterDeclarationOutcome.error:
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        result.errorMessage ??
+                                            'Impossible de déclarer la portée.',
+                                      ),
+                                    ),
+                                  );
                               }
                             }
                           },

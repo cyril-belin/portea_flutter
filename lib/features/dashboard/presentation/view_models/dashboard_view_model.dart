@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
 import '../../../onboarding/domain/repositories/i_kennel_repository.dart';
 import '../../../litters/domain/repositories/i_litter_repository.dart';
+import '../../../breeders/domain/repositories/i_breeder_repository.dart';
 import '../../../puppies/domain/repositories/i_puppy_repository.dart';
 import '../../../puppies/domain/repositories/i_care_repository.dart';
 import '../../../settings/domain/repositories/i_settings_repository.dart';
@@ -9,6 +10,7 @@ import '../../../settings/domain/repositories/i_settings_repository.dart';
 class DashboardViewModel extends ChangeNotifier {
   final IKennelRepository _kennelRepository;
   final ILitterRepository _litterRepository;
+  final IBreederRepository _breederRepository;
   final IPuppyRepository _puppyRepository;
   final ICareRepository _careRepository;
   final ISettingsRepository _settingsRepository;
@@ -16,11 +18,13 @@ class DashboardViewModel extends ChangeNotifier {
   DashboardViewModel({
     required IKennelRepository kennelRepository,
     required ILitterRepository litterRepository,
+    required IBreederRepository breederRepository,
     required IPuppyRepository puppyRepository,
     required ICareRepository careRepository,
     required ISettingsRepository settingsRepository,
   }) : _kennelRepository = kennelRepository,
        _litterRepository = litterRepository,
+       _breederRepository = breederRepository,
        _puppyRepository = puppyRepository,
        _careRepository = careRepository,
        _settingsRepository = settingsRepository;
@@ -59,8 +63,12 @@ class DashboardViewModel extends ChangeNotifier {
         _activeLitterPuppies = await _puppyRepository.getPuppies(
           _activeLitter!.id!,
         );
-        // Let's resolve the mother's name from mock store directly or keep it simple
-        _motherName = "Salsa"; // Standard from database
+        // Resolve the mother's name from the breeder repository (real data,
+        // no more hardcoded mock value).
+        final mother = await _breederRepository.getBreeder(
+          _activeLitter!.motherId,
+        );
+        _motherName = mother?.name;
       } else {
         _activeLitterPuppies = [];
         _motherName = null;

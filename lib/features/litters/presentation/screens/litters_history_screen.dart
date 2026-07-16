@@ -65,6 +65,7 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
                           _buildActiveLitterCard(
                             context,
                             viewModel.activeLitter!,
+                            viewModel.activeMotherName,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -180,7 +181,11 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
     );
   }
 
-  Widget _buildActiveLitterCard(BuildContext context, Litter litter) {
+  Widget _buildActiveLitterCard(
+    BuildContext context,
+    Litter litter,
+    String? motherName,
+  ) {
     final diff = DateTime.now().difference(litter.birthDate).inDays;
     final ageLabel = diff < 7 ? 'J+$diff' : 'Semaine ${diff ~/ 7}';
 
@@ -201,7 +206,7 @@ class _LittersHistoryScreenState extends State<LittersHistoryScreen> {
           ),
         ),
         title: Text(
-          'Portée de Salsa', // Mother name
+          'Portée de ${motherName ?? "Mère"}',
           style: AppTextStyles.body.copyWith(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(

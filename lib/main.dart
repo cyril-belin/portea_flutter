@@ -16,7 +16,7 @@ import 'features/onboarding/data/repositories/serverpod_kennel_repository.dart';
 import 'features/breeders/domain/repositories/i_breeder_repository.dart';
 import 'features/breeders/data/repositories/serverpod_breeder_repository.dart';
 import 'features/litters/domain/repositories/i_litter_repository.dart';
-import 'features/litters/data/repositories/mock_litter_repository.dart';
+import 'features/litters/data/repositories/serverpod_litter_repository.dart';
 import 'features/puppies/domain/repositories/i_puppy_repository.dart';
 import 'features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'features/puppies/domain/repositories/i_weighing_repository.dart';
@@ -67,7 +67,7 @@ void main() async {
   // Create core repositories
   final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = ServerpodBreederRepository(client);
-  final litterRepository = MockLitterRepository();
+  final litterRepository = ServerpodLitterRepository(client);
   final puppyRepository = MockPuppyRepository();
   final weighingRepository = MockWeighingRepository();
   final careRepository = MockCareRepository();
@@ -101,8 +101,9 @@ void main() async {
         ChangeNotifierProvider<OnboardingViewModel>.value(
           value: onboardingViewModel,
         ),
-        ChangeNotifierProxyProvider5<
+        ChangeNotifierProxyProvider6<
           IKennelRepository,
+          IBreederRepository,
           ILitterRepository,
           IPuppyRepository,
           ICareRepository,
@@ -111,15 +112,17 @@ void main() async {
         >(
           create: (context) => DashboardViewModel(
             kennelRepository: context.read<IKennelRepository>(),
+            breederRepository: context.read<IBreederRepository>(),
             litterRepository: context.read<ILitterRepository>(),
             puppyRepository: context.read<IPuppyRepository>(),
             careRepository: context.read<ICareRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
           ),
-          update: (context, k, l, p, c, s, prev) =>
+          update: (context, k, b, l, p, c, s, prev) =>
               prev ??
               DashboardViewModel(
                 kennelRepository: k,
+                breederRepository: b,
                 litterRepository: l,
                 puppyRepository: p,
                 careRepository: c,
@@ -143,19 +146,22 @@ void main() async {
           update: (context, repo, prev) =>
               prev ?? BreederProfileViewModel(breederRepository: repo),
         ),
-        ChangeNotifierProxyProvider2<
+        ChangeNotifierProxyProvider3<
           ILitterRepository,
+          IBreederRepository,
           ISettingsRepository,
           LittersViewModel
         >(
           create: (context) => LittersViewModel(
             litterRepository: context.read<ILitterRepository>(),
+            breederRepository: context.read<IBreederRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
           ),
-          update: (context, litterRepo, settingsRepo, prev) =>
+          update: (context, litterRepo, breederRepo, settingsRepo, prev) =>
               prev ??
               LittersViewModel(
                 litterRepository: litterRepo,
+                breederRepository: breederRepo,
                 settingsRepository: settingsRepo,
               ),
         ),

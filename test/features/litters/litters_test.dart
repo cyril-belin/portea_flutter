@@ -75,15 +75,18 @@ void main() {
 
   group('LittersViewModel', () {
     late MockLitterRepository litterRepo;
+    late MockBreederRepository breederRepo;
     late MockSettingsRepository settingsRepo;
     late LittersViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
       litterRepo = MockLitterRepository();
+      breederRepo = MockBreederRepository();
       settingsRepo = MockSettingsRepository();
       viewModel = LittersViewModel(
         litterRepository: litterRepo,
+        breederRepository: breederRepo,
         settingsRepository: settingsRepo,
       );
     });
@@ -204,7 +207,7 @@ void main() {
     );
 
     test(
-      'declareLitter deactivates current active litter and creates a new one',
+      'declareLitter creates a new litter without touching the existing active one',
       () async {
         // Current active litter has ID 1
         final activeBefore = await litterRepo.getActiveLitter();
@@ -212,22 +215,22 @@ void main() {
         expect(activeBefore.isActive, isTrue);
 
         final birthDate = DateTime.now();
-        final newLitter = await viewModel.declareLitter(
+        final result = await viewModel.declareLitter(
           motherId: 1,
           fatherId: 2,
           birthDate: birthDate,
         );
 
-        expect(newLitter, isNotNull);
-        expect(newLitter!.id, equals(2));
-        expect(newLitter.isActive, isTrue);
+        // Declaration succeeded.
+        expect(result.outcome, LitterDeclarationOutcome.success);
+        expect(result.litter, isNotNull);
+        expect(result.litter!.id, equals(2));
+        expect(result.litter!.isActive, isTrue);
 
-        // Verify old active litter is now inactive
+        // The previous active litter is left untouched — NO silent
+        // deactivation. Closure is a manual action.
         final oldLitter = await litterRepo.getLitter(1);
-        expect(oldLitter!.isActive, isFalse);
-
-        final activeAfter = await litterRepo.getActiveLitter();
-        expect(activeAfter!.id, equals(2));
+        expect(oldLitter!.isActive, isTrue);
       },
     );
   });
