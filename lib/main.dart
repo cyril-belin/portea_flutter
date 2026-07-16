@@ -14,7 +14,7 @@ import 'core/notifications/notification_service.dart';
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
 import 'features/onboarding/data/repositories/serverpod_kennel_repository.dart';
 import 'features/breeders/domain/repositories/i_breeder_repository.dart';
-import 'features/breeders/data/repositories/mock_breeder_repository.dart';
+import 'features/breeders/data/repositories/serverpod_breeder_repository.dart';
 import 'features/litters/domain/repositories/i_litter_repository.dart';
 import 'features/litters/data/repositories/mock_litter_repository.dart';
 import 'features/puppies/domain/repositories/i_puppy_repository.dart';
@@ -66,7 +66,7 @@ void main() async {
 
   // Create core repositories
   final kennelRepository = ServerpodKennelRepository(client);
-  final breederRepository = MockBreederRepository();
+  final breederRepository = ServerpodBreederRepository(client);
   final litterRepository = MockLitterRepository();
   final puppyRepository = MockPuppyRepository();
   final weighingRepository = MockWeighingRepository();
