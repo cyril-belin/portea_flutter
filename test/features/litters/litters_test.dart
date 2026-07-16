@@ -95,18 +95,21 @@ void main() {
       expect(viewModel.isPremium, isFalse);
     });
 
-    test('loadLitters populates properties when active litter exists', () async {
-      final future = viewModel.loadLitters();
-      expect(viewModel.isLoading, isTrue);
+    test(
+      'loadLitters populates properties when active litter exists',
+      () async {
+        final future = viewModel.loadLitters();
+        expect(viewModel.isLoading, isTrue);
 
-      await future;
+        await future;
 
-      expect(viewModel.isLoading, isFalse);
-      expect(viewModel.activeLitter, isNotNull);
-      expect(viewModel.activeLitter!.id, equals(1));
-      expect(viewModel.pastLitters, isEmpty);
-      expect(viewModel.isPremium, isFalse);
-    });
+        expect(viewModel.isLoading, isFalse);
+        expect(viewModel.activeLitter, isNotNull);
+        expect(viewModel.activeLitter!.id, equals(1));
+        expect(viewModel.pastLitters, isEmpty);
+        expect(viewModel.isPremium, isFalse);
+      },
+    );
 
     test('loadLitters splits active and past litters correctly', () async {
       // Add a past (inactive) litter
@@ -187,39 +190,45 @@ void main() {
       );
     });
 
-    test('loadBreedersForDeclaration loads active male and female breeders', () async {
-      await viewModel.loadBreedersForDeclaration();
+    test(
+      'loadBreedersForDeclaration loads active male and female breeders',
+      () async {
+        await viewModel.loadBreedersForDeclaration();
 
-      expect(viewModel.mothers.length, equals(1));
-      expect(viewModel.mothers[0].name, equals('Salsa'));
+        expect(viewModel.mothers.length, equals(1));
+        expect(viewModel.mothers[0].name, equals('Salsa'));
 
-      expect(viewModel.fathers.length, equals(1));
-      expect(viewModel.fathers[0].name, equals('Ramses'));
-    });
+        expect(viewModel.fathers.length, equals(1));
+        expect(viewModel.fathers[0].name, equals('Ramses'));
+      },
+    );
 
-    test('declareLitter deactivates current active litter and creates a new one', () async {
-      // Current active litter has ID 1
-      final activeBefore = await litterRepo.getActiveLitter();
-      expect(activeBefore!.id, equals(1));
-      expect(activeBefore.isActive, isTrue);
+    test(
+      'declareLitter deactivates current active litter and creates a new one',
+      () async {
+        // Current active litter has ID 1
+        final activeBefore = await litterRepo.getActiveLitter();
+        expect(activeBefore!.id, equals(1));
+        expect(activeBefore.isActive, isTrue);
 
-      final birthDate = DateTime.now();
-      final newLitter = await viewModel.declareLitter(
-        motherId: 1,
-        fatherId: 2,
-        birthDate: birthDate,
-      );
+        final birthDate = DateTime.now();
+        final newLitter = await viewModel.declareLitter(
+          motherId: 1,
+          fatherId: 2,
+          birthDate: birthDate,
+        );
 
-      expect(newLitter, isNotNull);
-      expect(newLitter!.id, equals(2));
-      expect(newLitter.isActive, isTrue);
+        expect(newLitter, isNotNull);
+        expect(newLitter!.id, equals(2));
+        expect(newLitter.isActive, isTrue);
 
-      // Verify old active litter is now inactive
-      final oldLitter = await litterRepo.getLitter(1);
-      expect(oldLitter!.isActive, isFalse);
+        // Verify old active litter is now inactive
+        final oldLitter = await litterRepo.getLitter(1);
+        expect(oldLitter!.isActive, isFalse);
 
-      final activeAfter = await litterRepo.getActiveLitter();
-      expect(activeAfter!.id, equals(2));
-    });
+        final activeAfter = await litterRepo.getActiveLitter();
+        expect(activeAfter!.id, equals(2));
+      },
+    );
   });
 }

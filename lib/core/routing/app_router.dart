@@ -59,7 +59,8 @@ GoRouter createRouter(OnboardingViewModel onboardingViewModel) {
 
       // Authenticated, kennel created, but notifications screen not yet passed:
       // allow /onboarding/notifications, redirect other onboarding screens to it.
-      if (onboardingViewModel.hasKennel && isOnboarding &&
+      if (onboardingViewModel.hasKennel &&
+          isOnboarding &&
           loc != '/onboarding/notifications') {
         return '/onboarding/notifications';
       }

@@ -19,55 +19,28 @@ class _OnboardingNotificationsScreenState
     extends State<OnboardingNotificationsScreen> {
   bool _requesting = false;
 
-  void _finish() {
-    context.read<OnboardingViewModel>().completeOnboarding();
-    context.go('/dashboard');
+  Future<void> _finish() async {
+    await context.read<OnboardingViewModel>().completeOnboarding();
+    if (mounted) context.go('/dashboard');
   }
 
   Future<void> _requestPermission() async {
     setState(() => _requesting = true);
-    PermissionResult? result;
     try {
-      result = await context.read<NotificationService>().requestPermission();
-      debugPrint('[OnboardingNotifications] result=$result');
-    } catch (e, st) {
-      debugPrint('[OnboardingNotifications] requestPermission threw: $e\n$st');
+      // Real OS permission request. The result (granted/denied) does not
+      // gate onboarding — the user can proceed either way.
+      await context.read<NotificationService>().requestPermission();
+    } catch (e) {
+      // Surface the error instead of swallowing it (§8 point 4).
       if (mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Exception'),
-            content: Text('$e'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur permission notifications : $e')),
         );
       }
     } finally {
       if (mounted) {
         setState(() => _requesting = false);
-        // DIAGNOSTIC: affiche le résultat avant de continuer. À retirer une
-        // fois le problème de popup résolu.
-        if (result != null) {
-          await showDialog<void>(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Diagnostic permission'),
-              content: Text(result.toString()),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Continuer'),
-                ),
-              ],
-            ),
-          );
-        }
-        _finish();
+        await _finish();
       }
     }
   }

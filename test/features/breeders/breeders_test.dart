@@ -121,27 +121,30 @@ void main() {
       expect(viewModel.breeder, isNull);
     });
 
-    test('saveBreeder creates new breeder when state breeder is null', () async {
-      viewModel.setupNewBreeder();
+    test(
+      'saveBreeder creates new breeder when state breeder is null',
+      () async {
+        viewModel.setupNewBreeder();
 
-      final result = await viewModel.saveBreeder(
-        name: 'Shadow',
-        sex: 'male',
-        breed: 'Border Collie',
-        birthDate: DateTime(2025, 1, 1),
-        chipNumber: '123456',
-        tattooNumber: '',
-        status: 'active',
-      );
+        final result = await viewModel.saveBreeder(
+          name: 'Shadow',
+          sex: 'male',
+          breed: 'Border Collie',
+          birthDate: DateTime(2025, 1, 1),
+          chipNumber: '123456',
+          tattooNumber: '',
+          status: 'active',
+        );
 
-      expect(result, isTrue);
-      
-      final dbList = MockDatabase.instance.breeders;
-      expect(dbList.length, equals(3));
-      expect(dbList.last.name, equals('Shadow'));
-      expect(dbList.last.chipNumber, equals('123456'));
-      expect(dbList.last.tattooNumber, isNull);
-    });
+        expect(result, isTrue);
+
+        final dbList = MockDatabase.instance.breeders;
+        expect(dbList.length, equals(3));
+        expect(dbList.last.name, equals('Shadow'));
+        expect(dbList.last.chipNumber, equals('123456'));
+        expect(dbList.last.tattooNumber, isNull);
+      },
+    );
 
     test('saveBreeder updates breeder when state breeder is loaded', () async {
       await viewModel.loadBreeder(1);

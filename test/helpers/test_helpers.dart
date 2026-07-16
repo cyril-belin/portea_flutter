@@ -3,7 +3,7 @@ import 'package:portea_flutter/core/data/mock_database.dart';
 
 void resetMockDatabase() {
   final db = MockDatabase.instance;
-  
+
   db.kennel = Kennel(
     name: "L'Élevage des Terres Dorées",
     species: "dog",

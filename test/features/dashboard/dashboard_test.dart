@@ -44,27 +44,35 @@ void main() {
       expect(viewModel.isPremium, isFalse);
     });
 
-    test('loadDashboard loads all properties when there is an active litter', () async {
-      // Setup default database state has 1 active litter, 3 puppies, 2 care entries
-      // Setup mock kennel repository to have a kennel (default in resetMockDatabase is dog species)
-      final db = MockDatabase.instance;
-      await kennelRepository.createKennel(db.kennel!); // Initialize the kennel repo
+    test(
+      'loadDashboard loads all properties when there is an active litter',
+      () async {
+        // Setup default database state has 1 active litter, 3 puppies, 2 care entries
+        // Setup mock kennel repository to have a kennel (default in resetMockDatabase is dog species)
+        final db = MockDatabase.instance;
+        await kennelRepository.createKennel(
+          db.kennel!,
+        ); // Initialize the kennel repo
 
-      final future = viewModel.loadDashboard();
-      expect(viewModel.isLoading, isTrue);
+        final future = viewModel.loadDashboard();
+        expect(viewModel.isLoading, isTrue);
 
-      await future;
+        await future;
 
-      expect(viewModel.isLoading, isFalse);
-      expect(viewModel.isPremium, isFalse);
-      expect(viewModel.kennel, isNotNull);
-      expect(viewModel.kennel!.name, equals("L'Élevage des Terres Dorées"));
-      expect(viewModel.activeLitter, isNotNull);
-      expect(viewModel.activeLitter!.id, equals(1));
-      expect(viewModel.activeLitterPuppies.length, equals(3));
-      expect(viewModel.motherName, equals("Salsa"));
-      expect(viewModel.upcomingReminders.length, equals(1)); // reminderAt is in future
-    });
+        expect(viewModel.isLoading, isFalse);
+        expect(viewModel.isPremium, isFalse);
+        expect(viewModel.kennel, isNotNull);
+        expect(viewModel.kennel!.name, equals("L'Élevage des Terres Dorées"));
+        expect(viewModel.activeLitter, isNotNull);
+        expect(viewModel.activeLitter!.id, equals(1));
+        expect(viewModel.activeLitterPuppies.length, equals(3));
+        expect(viewModel.motherName, equals("Salsa"));
+        expect(
+          viewModel.upcomingReminders.length,
+          equals(1),
+        ); // reminderAt is in future
+      },
+    );
 
     test('loadDashboard handles no active litter', () async {
       // Arrange: clear litters from db

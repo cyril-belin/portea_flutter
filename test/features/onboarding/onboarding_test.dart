@@ -171,46 +171,54 @@ void main() {
       expect(vm.needsKennelSetup, isTrue);
     });
 
-    test('cold start with kennel and completed flag -> dashboard ready',
-        () async {
-      // Simulate a returning user: kennel exists AND onboarding was completed.
-      SharedPreferences.setMockInitialValues({'onboarding_completed': true});
-      final repo = MockKennelRepository();
-      await repo.createKennel(
-        Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
-      );
+    test(
+      'cold start with kennel and completed flag -> dashboard ready',
+      () async {
+        // Simulate a returning user: kennel exists AND onboarding was completed.
+        SharedPreferences.setMockInitialValues({'onboarding_completed': true});
+        final repo = MockKennelRepository();
+        await repo.createKennel(
+          Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
+        );
 
-      final vm = OnboardingViewModel(
-        kennelRepository: repo,
-        authListenable: authListenable(initial: true),
-      );
-      await settle();
+        final vm = OnboardingViewModel(
+          kennelRepository: repo,
+          authListenable: authListenable(initial: true),
+        );
+        await settle();
 
-      expect(vm.isAuthenticated, isTrue);
-      expect(vm.hasKennel, isTrue);
-      expect(vm.isOnboardingCompleted, isTrue);
-      expect(vm.needsKennelSetup, isFalse);
-    });
+        expect(vm.isAuthenticated, isTrue);
+        expect(vm.hasKennel, isTrue);
+        expect(vm.isOnboardingCompleted, isTrue);
+        expect(vm.needsKennelSetup, isFalse);
+      },
+    );
 
-    test('kennel exists but onboarding not finished -> needs notifications', () async {
-      // Mid-flow: kennel created but notifications screen not yet passed.
-      SharedPreferences.setMockInitialValues({});
-      final repo = MockKennelRepository();
-      await repo.createKennel(
-        Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
-      );
+    test(
+      'kennel exists but onboarding not finished -> needs notifications',
+      () async {
+        // Mid-flow: kennel created but notifications screen not yet passed.
+        SharedPreferences.setMockInitialValues({});
+        final repo = MockKennelRepository();
+        await repo.createKennel(
+          Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
+        );
 
-      final vm = OnboardingViewModel(
-        kennelRepository: repo,
-        authListenable: authListenable(initial: true),
-      );
-      await settle();
+        final vm = OnboardingViewModel(
+          kennelRepository: repo,
+          authListenable: authListenable(initial: true),
+        );
+        await settle();
 
-      expect(vm.isAuthenticated, isTrue);
-      expect(vm.hasKennel, isTrue);
-      expect(vm.isOnboardingCompleted, isFalse); // must still pass notifications
-      expect(vm.needsKennelSetup, isFalse); // kennel already exists
-    });
+        expect(vm.isAuthenticated, isTrue);
+        expect(vm.hasKennel, isTrue);
+        expect(
+          vm.isOnboardingCompleted,
+          isFalse,
+        ); // must still pass notifications
+        expect(vm.needsKennelSetup, isFalse); // kennel already exists
+      },
+    );
 
     test('completeOnboarding persists and survives a new instance', () async {
       SharedPreferences.setMockInitialValues({});
