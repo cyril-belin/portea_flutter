@@ -20,7 +20,7 @@ import 'features/litters/data/repositories/serverpod_litter_repository.dart';
 import 'features/puppies/domain/repositories/i_puppy_repository.dart';
 import 'features/puppies/data/repositories/serverpod_puppy_repository.dart';
 import 'features/puppies/domain/repositories/i_weighing_repository.dart';
-import 'features/puppies/data/repositories/mock_weighing_repository.dart';
+import 'features/puppies/data/repositories/serverpod_weighing_repository.dart';
 import 'features/puppies/domain/repositories/i_care_repository.dart';
 import 'features/puppies/data/repositories/mock_care_repository.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
@@ -69,7 +69,7 @@ void main() async {
   final breederRepository = ServerpodBreederRepository(client);
   final litterRepository = ServerpodLitterRepository(client);
   final puppyRepository = ServerpodPuppyRepository(client);
-  final weighingRepository = MockWeighingRepository();
+  final weighingRepository = ServerpodWeighingRepository(client);
   final careRepository = MockCareRepository();
   final settingsRepository = MockSettingsRepository();
 
@@ -216,19 +216,16 @@ void main() async {
                 puppyRepository: puppyRepo,
               ),
         ),
-        ChangeNotifierProxyProvider2<
-          IPuppyRepository,
+        ChangeNotifierProxyProvider<
           IWeighingRepository,
           GroupWeighingViewModel
         >(
           create: (context) => GroupWeighingViewModel(
-            puppyRepository: context.read<IPuppyRepository>(),
             weighingRepository: context.read<IWeighingRepository>(),
           ),
-          update: (context, puppyRepo, weighingRepo, prev) =>
+          update: (context, weighingRepo, prev) =>
               prev ??
               GroupWeighingViewModel(
-                puppyRepository: puppyRepo,
                 weighingRepository: weighingRepo,
               ),
         ),

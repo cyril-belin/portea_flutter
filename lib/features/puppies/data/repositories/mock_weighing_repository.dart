@@ -36,4 +36,29 @@ class MockWeighingRepository implements IWeighingRepository {
       await addWeighing(entry);
     }
   }
+
+  @override
+  Future<List<PuppyWithLastWeighing>> getPuppiesWithLastWeighing(
+    int litterId,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 120));
+    // Puppies of the litter, in id order (mirrors the server endpoint).
+    final puppies = _db.puppies.where((p) => p.litterId == litterId).toList()
+      ..sort((a, b) => a.id!.compareTo(b.id!));
+    if (puppies.isEmpty) {
+      return const [];
+    }
+    // Index the most recent weighing per puppy in a single pass.
+    final byLast = <int, WeighingEntry>{};
+    for (final w in _db.weighings) {
+      final current = byLast[w.puppyId];
+      if (current == null || w.weighedAt.isAfter(current.weighedAt)) {
+        byLast[w.puppyId] = w;
+      }
+    }
+    return [
+      for (final p in puppies)
+        PuppyWithLastWeighing(puppy: p, lastWeighing: byLast[p.id]),
+    ];
+  }
 }

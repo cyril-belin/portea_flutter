@@ -38,6 +38,7 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.5.5
   flutter_local_notifications: ^22.0.1
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   # Used for agents to drive the app through the Dart MCP
