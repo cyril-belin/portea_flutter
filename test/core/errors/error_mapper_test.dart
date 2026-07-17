@@ -51,6 +51,24 @@ void main() {
       );
     });
 
+    test('InvalidCareRelationException surfaces its server message', () {
+      // Ownership/forge failure on a care entry — the user must see a business
+      // sentence, not a transport error.
+      expect(
+        mapExceptionToMessage(InvalidCareRelationException()),
+        contains('kennel'),
+      );
+    });
+
+    test('InvalidCareInputException surfaces its server message', () {
+      // Payload validation (bad type, future appliedAt, reminder before care,
+      // blank product) — the user must see the business reason.
+      expect(
+        mapExceptionToMessage(InvalidCareInputException()),
+        contains('soin'),
+      );
+    });
+
     test('a custom message provided at throw time is honored', () {
       expect(
         mapExceptionToMessage(
