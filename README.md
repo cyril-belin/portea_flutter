@@ -46,19 +46,24 @@ UI puis branchement au backend Serverpod.
 | F01 — Onboarding (auth + élevage)   | Backend Serverpod   |
 | F02 — Reproducteurs                 | Backend Serverpod   |
 | F03 — Portées (limite freemium)     | Backend Serverpod   |
-| F04 — Chiots                        | UI faite, mock      |
-| F05 — Pesées                        | UI faite, mock      |
-| F06 — Soins                         | UI faite, mock      |
+| F04 — Chiots                        | Backend Serverpod   |
+| F05 — Pesées                        | Backend Serverpod   |
+| F06 — Soins                         | Backend Serverpod   |
 | F07 — Rappels (notifications)       | UI faite, mock      |
 | F08 — Statut chiot                  | UI faite, mock      |
 | F09 — Documents                     | UI faite, mock      |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
 
-Les fonctionnalités branchées au backend Serverpod (F01–F03) persistent les
+Les fonctionnalités branchées au backend Serverpod (F01–F06) persistent les
 données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
 utilisateur, anti-forging du `kennelId`). Les fonctionnalités « UI faite, mock »
 s'appuient sur un `MockDatabase` en mémoire : l'interface est navigable, les
 données ne sont pas persistées.
+
+> F06 (soins) a corrigé un bug de l'audit externe (claim 4.3) : le soin groupé
+> crée désormais **une seule entrée parent** portant le rappel, et une entrée
+> par chiot avec rappel forcé à `null` — pour éviter de planifier N
+> notifications identiques quand F07 gérera les rappels.
 
 ---
 
