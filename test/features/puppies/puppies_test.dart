@@ -499,6 +499,21 @@ void main() {
       final weighings2 = await weighingRepo.getWeighings(2);
       expect(weighings2.last.weightGrams, equals(1400.0));
     });
+
+    test(
+      'saveWeighingSession failure surfaces errorMessage and returns false',
+      () async {
+        await viewModel.loadLitterPuppies(1);
+        viewModel.updateWeight(0, 1900.0);
+        weighingRepo.throwOnNext = Exception('boom');
+
+        final result = await viewModel.saveWeighingSession();
+
+        expect(result, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
   });
 
   group('PuppyFileViewModel', () {
