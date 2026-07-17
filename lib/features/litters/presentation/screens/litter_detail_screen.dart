@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/status_badge_widget.dart';
@@ -29,9 +30,36 @@ class _LitterDetailScreenState extends State<LitterDetailScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<LitterDetailViewModel>();
 
-    if (viewModel.isLoading) {
+    if (viewModel.state == OperationState.loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (viewModel.state == OperationState.error && viewModel.litter == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Portée')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  viewModel.errorMessage!,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => viewModel.loadLitterDetail(widget.id),
+                  child: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 

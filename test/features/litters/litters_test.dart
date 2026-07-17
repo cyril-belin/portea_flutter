@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/litters/data/repositories/mock_litter_repository.dart';
 import 'package:portea_flutter/features/litters/presentation/view_models/litters_view_model.dart';
 import 'package:portea_flutter/features/litters/presentation/view_models/litter_detail_view_model.dart';
@@ -91,28 +92,43 @@ void main() {
       );
     });
 
-    test('initial states', () {
-      expect(viewModel.isLoading, isFalse);
+    test('initial state is idle and not busy', () {
+      expect(viewModel.state, OperationState.idle);
+      expect(viewModel.isBusy, isFalse);
       expect(viewModel.activeLitter, isNull);
       expect(viewModel.pastLitters, isEmpty);
       expect(viewModel.isPremium, isFalse);
+      expect(viewModel.errorMessage, isNull);
     });
 
     test(
       'loadLitters populates properties when active litter exists',
       () async {
         final future = viewModel.loadLitters();
-        expect(viewModel.isLoading, isTrue);
+        expect(viewModel.isBusy, isTrue);
+        expect(viewModel.state, OperationState.loading);
 
         await future;
 
-        expect(viewModel.isLoading, isFalse);
+        expect(viewModel.isBusy, isFalse);
+        expect(viewModel.state, OperationState.success);
         expect(viewModel.activeLitter, isNotNull);
         expect(viewModel.activeLitter!.id, equals(1));
         expect(viewModel.pastLitters, isEmpty);
         expect(viewModel.isPremium, isFalse);
       },
     );
+
+    test('loadLitters failure sets errorMessage and error state', () async {
+      litterRepo.throwOnNext = Exception('boom');
+
+      await viewModel.loadLitters();
+
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(viewModel.activeLitter, isNull);
+      expect(viewModel.pastLitters, isEmpty);
+    });
 
     test('loadLitters splits active and past litters correctly', () async {
       // Add a past (inactive) litter
@@ -176,6 +192,19 @@ void main() {
       expect(viewModel.father, isNull);
       expect(viewModel.litter!.externalSireName, equals('Max'));
     });
+
+    test(
+      'loadLitterDetail failure sets errorMessage and error state',
+      () async {
+        litterRepo.throwOnNext = Exception('boom');
+
+        await viewModel.loadLitterDetail(1);
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(viewModel.litter, isNull);
+      },
+    );
   });
 
   group('LitterDeclarationViewModel', () {
