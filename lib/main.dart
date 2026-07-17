@@ -97,6 +97,9 @@ void main() async {
   final onboardingViewModel = OnboardingViewModel(
     kennelRepository: kennelRepository,
     careRepository: careRepository,
+    puppyRepository: puppyRepository,
+    litterRepository: litterRepository,
+    breederRepository: breederRepository,
     notificationService: notificationService,
     authListenable: authListenable,
   );

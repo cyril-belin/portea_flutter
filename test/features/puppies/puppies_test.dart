@@ -808,7 +808,8 @@ void main() {
 
     test(
       'F07: individual care with a reminder schedules one notification with '
-      'the persisted id and the puppy payload',
+      'the persisted id, the puppy payload, and the puppy name in the title '
+      '(rule 7)',
       () async {
         final reminder = DateTime.now().add(const Duration(days: 10));
 
@@ -818,13 +819,20 @@ void main() {
           date: DateTime.now(),
           puppyId: 1,
           reminderDate: reminder,
+          targetName: 'Orphée',
         );
 
         expect(result, isTrue);
         // The seeded DB already has 2 care entries (ids 1, 2), so the new
         // individual entry gets id 3. The notification id = that entry's id.
+        // Title carries the puppy name; body is "{Type} — {produit}".
         expect(notifications.scheduled, [
-          (id: 3, payload: '/puppies/1'),
+          (
+            id: 3,
+            title: 'Rappel soin — Orphée',
+            body: 'Vaccin — Rabigen',
+            payload: '/puppies/1',
+          ),
         ]);
         // Rule 4: registration NEVER cancels another reminder.
         expect(notifications.cancelled, isEmpty);
@@ -833,7 +841,7 @@ void main() {
 
     test(
       'F07: group care with a reminder schedules from the PARENT entry '
-      '(litter payload), never from children',
+      '(litter payload, mother name in the title), never from children',
       () async {
         final reminder = DateTime.now().add(const Duration(days: 12));
 
@@ -844,16 +852,43 @@ void main() {
           litterId: 1,
           targetAllLitter: true,
           reminderDate: reminder,
+          targetName: 'Salsa',
         );
 
         expect(result, isTrue);
         // The parent entry carries the reminderAt; the notification routes to
         // the litter (the parent's target), NOT to any puppy. Exactly ONE
-        // schedule — no per-child spam.
+        // schedule — no per-child spam. Title uses the mother name.
         expect(notifications.scheduled, [
-          (id: 3, payload: '/litters/1'),
+          (
+            id: 3,
+            title: 'Rappel soin — Portée de Salsa',
+            body: 'Vermifuge — Milbemax',
+            payload: '/litters/1',
+          ),
         ]);
         expect(notifications.cancelled, isEmpty);
+      },
+    );
+
+    test(
+      'F07: missing target name degrades the title to "Rappel soin" '
+      '(rule 7 fallback) without blocking the schedule',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 10));
+
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+          reminderDate: reminder,
+          // targetName intentionally omitted
+        );
+
+        expect(result, isTrue);
+        expect(notifications.scheduled.last.title, 'Rappel soin');
+        expect(notifications.scheduled.last.body, 'Vaccin — Rabigen');
       },
     );
 

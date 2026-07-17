@@ -56,6 +56,11 @@ class AddCareViewModel extends ChangeNotifier {
   ///
   /// [targetAllLitter] + [litterId] → group care (single `addGroupCare`).
   /// Otherwise → individual care (single `addCareEntry`).
+  ///
+  /// [targetName] is the reminder target's display name (puppy name for
+  /// individual care, mother name for group care) — resolved by the screen
+  /// from already-loaded data. Passed through to the notification title (F07
+  /// rule 7). The view model does NO name lookup itself.
   Future<bool> saveCareEntry({
     required String type, // 'vaccine' | 'deworming' | 'other'
     required String product,
@@ -64,6 +69,7 @@ class AddCareViewModel extends ChangeNotifier {
     int? litterId,
     bool targetAllLitter = false,
     DateTime? reminderDate,
+    String? targetName,
     String? notes,
   }) async {
     if (_state == OperationState.mutating) return false;
@@ -111,7 +117,11 @@ class AddCareViewModel extends ChangeNotifier {
       // persisted entry's id (stable, idempotent). Rule 4: NEVER cancel other
       // reminders here — scheduling the same id just replaces it. A scheduling
       // failure is swallowed so a successful save stays successful.
-      await _scheduleReminderIfAny(reminderEntry);
+      await _scheduleReminderIfAny(
+        reminderEntry,
+        isGroup: targetAllLitter && litterId != null,
+        targetName: targetName,
+      );
       return true;
     } catch (e) {
       _errorMessage = mapExceptionToMessage(e);
@@ -126,36 +136,35 @@ class AddCareViewModel extends ChangeNotifier {
   /// date) is swallowed — the care entry is already saved, so a reminder glitch
   /// must not turn a success into a failure.
   ///
-  /// Payload: `/puppies/<id>` for individual care, `/litters/<id>` for group
-  /// care (the parent carries the reminderAt). Rule 4: this only schedules — it
-  /// never cancels another reminder.
-  Future<void> _scheduleReminderIfAny(CareEntry? entry) async {
+  /// Title/body follow F07 rule 7: title includes the target name (puppy name
+  /// for individual care, mother name for group care) passed in by the screen;
+  /// body is `{Type} — {produit}` (product omitted when blank). Rule 4: this
+  /// only schedules — it never cancels another reminder.
+  Future<void> _scheduleReminderIfAny(
+    CareEntry? entry, {
+    required bool isGroup,
+    String? targetName,
+  }) async {
     final service = _notificationService;
     if (service == null) return;
     final id = entry?.id;
     final reminderAt = entry?.reminderAt;
     if (id == null || reminderAt == null) return;
 
-    final product = (entry!.product == null || entry.product!.trim().isEmpty)
-        ? 'Soin sans produit'
-        : entry.product;
-    final typeLabel = switch (entry.type) {
-      'vaccine' => 'Vaccin',
-      'deworming' => 'Vermifuge',
-      _ => 'Soin',
-    };
-    final isGroup = entry.puppyId == null && entry.litterId != null;
-    final payload = entry.puppyId != null
+    // Payload: `/puppies/<id>` for individual care, `/litters/<id>` for group
+    // care (the parent carries the reminderAt).
+    final payload = entry!.puppyId != null
         ? '/puppies/${entry.puppyId}'
         : '/litters/${entry.litterId}';
-    final target = isGroup ? ' (portée)' : '';
 
     try {
       await service.scheduleReminder(
         notificationId: id,
         scheduledAt: reminderAt,
-        title: 'Rappel : $product',
-        body: "$typeLabel$target prévu aujourd'hui",
+        title: isGroup
+            ? reminderTitle(motherName: targetName)
+            : reminderTitle(puppyName: targetName),
+        body: reminderBody(type: entry.type, product: entry.product),
         payload: payload,
       );
     } catch (_) {

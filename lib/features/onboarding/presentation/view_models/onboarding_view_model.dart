@@ -5,7 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/errors/operation_state.dart';
 import '../../../../core/notifications/inotification_service.dart';
+import '../../../breeders/domain/repositories/i_breeder_repository.dart';
+import '../../../litters/domain/repositories/i_litter_repository.dart';
 import '../../../puppies/domain/repositories/i_care_repository.dart';
+import '../../../puppies/domain/repositories/i_puppy_repository.dart';
 import '../../domain/repositories/i_kennel_repository.dart';
 
 /// Drives the onboarding flow and its routing.
@@ -22,10 +25,16 @@ class OnboardingViewModel extends ChangeNotifier {
   OnboardingViewModel({
     required IKennelRepository kennelRepository,
     ICareRepository? careRepository,
+    IPuppyRepository? puppyRepository,
+    ILitterRepository? litterRepository,
+    IBreederRepository? breederRepository,
     INotificationService? notificationService,
     ValueListenable<bool>? authListenable,
   }) : _kennelRepository = kennelRepository,
        _careRepository = careRepository,
+       _puppyRepository = puppyRepository,
+       _litterRepository = litterRepository,
+       _breederRepository = breederRepository,
        _notificationService = notificationService,
        _authListenable = authListenable {
     _authListenable?.addListener(_onAuthChanged);
@@ -36,6 +45,9 @@ class OnboardingViewModel extends ChangeNotifier {
 
   final IKennelRepository _kennelRepository;
   final ICareRepository? _careRepository;
+  final IPuppyRepository? _puppyRepository;
+  final ILitterRepository? _litterRepository;
+  final IBreederRepository? _breederRepository;
   final INotificationService? _notificationService;
   final ValueListenable<bool>? _authListenable;
 
@@ -138,21 +150,90 @@ class OnboardingViewModel extends ChangeNotifier {
     }
   }
 
-  /// F07: fetches the next upcoming reminders and asks the notification service
-  /// to re-schedule them. Best-effort and isolated from the auth flow — a
-  /// repository or OS failure here is swallowed (the app still works; reminders
-  /// may just be silent until next restart). Idempotent.
+  /// F07: fetches the next upcoming reminders and re-schedules them via the
+  /// notification service. Best-effort and isolated from the auth flow — any
+  /// failure is swallowed (the app still works; reminders may just be silent
+  /// until next restart). Idempotent (scheduling the same id replaces).
+  ///
+  /// Name resolution (F07 rule 7): getUpcomingReminders returns bare CareEntry
+  /// rows (ids only). The target name for the title is resolved here client-side
+  /// — puppy name for individual care, mother name for group care — with one
+  /// lookup per entry. The notification service itself does no lookup.
   Future<void> _rescheduleReminders() async {
     final careRepo = _careRepository;
     final service = _notificationService;
     if (careRepo == null || service == null) return;
     try {
       final upcoming = await careRepo.getUpcomingReminders(50);
-      await service.rescheduleAll(upcoming);
+      for (final entry in upcoming) {
+        await _scheduleOne(entry);
+      }
     } catch (_) {
       // Silently degrade: re-scheduling is an enhancement, not a requirement
       // for the auth flow to succeed.
     }
+  }
+
+  /// Resolves the target name for [entry] and schedules a single reminder.
+  /// Failures (lookup or OS) are swallowed per-entry so one bad entry doesn't
+  /// abort the rest. Past-date entries are skipped by the service's guard.
+  Future<void> _scheduleOne(CareEntry entry) async {
+    final service = _notificationService;
+    final id = entry.id;
+    final reminderAt = entry.reminderAt;
+    if (service == null || id == null || reminderAt == null) return;
+
+    final isGroup = entry.puppyId == null && entry.litterId != null;
+    String? targetName;
+    try {
+      targetName = await _resolveTargetName(entry, isGroup: isGroup);
+    } catch (_) {
+      // Name optional: title degrades to "Rappel soin" without it.
+    }
+
+    final payload = entry.puppyId != null
+        ? '/puppies/${entry.puppyId}'
+        : '/litters/${entry.litterId}';
+
+    try {
+      await service.scheduleReminder(
+        notificationId: id,
+        scheduledAt: reminderAt,
+        title: isGroup
+            ? reminderTitle(motherName: targetName)
+            : reminderTitle(puppyName: targetName),
+        body: reminderBody(type: entry.type, product: entry.product),
+        payload: payload,
+      );
+    } catch (_) {
+      // Best-effort: a scheduling failure for one entry is non-fatal.
+    }
+  }
+
+  /// Resolves the reminder target name for [entry]. Individual care → puppy
+  /// name; group care → mother name ("Portée de {mère}"). Returns null on any
+  /// miss so the title degrades gracefully.
+  Future<String?> _resolveTargetName(
+    CareEntry entry, {
+    required bool isGroup,
+  }) async {
+    if (!isGroup) {
+      final puppyId = entry.puppyId;
+      final puppyRepo = _puppyRepository;
+      if (puppyId == null || puppyRepo == null) return null;
+      return (await puppyRepo.getPuppy(puppyId))?.name;
+    }
+    // Group care: litter → motherId → mother name.
+    final litterId = entry.litterId;
+    final litterRepo = _litterRepository;
+    final breederRepo = _breederRepository;
+    if (litterId == null || litterRepo == null || breederRepo == null) {
+      return null;
+    }
+    final litter = await litterRepo.getLitter(litterId);
+    if (litter == null) return null;
+    final mother = await breederRepo.getBreeder(litter.motherId);
+    return mother?.name;
   }
 
   /// Marks onboarding as fully complete (called from the notifications screen).

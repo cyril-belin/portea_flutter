@@ -58,12 +58,6 @@ abstract class INotificationService {
   /// registration (F07 rule 4: no cross-cancellation).
   Future<void> cancelReminder(int notificationId);
 
-  /// Re-schedules every future reminder found in [entries]. Idempotent: calling
-  /// twice yields the same set of scheduled ids. Used at startup (after login)
-  /// to survive a device reboot. Entries with a past [CareEntry.reminderAt] or
-  /// a null id are skipped.
-  Future<void> rescheduleAll(List<CareEntry> entries);
-
   /// Parses a notification [payload] into a go_router route.
   ///
   /// - `/puppies/<id>` — individual care (puppy file).
@@ -87,4 +81,31 @@ String parseNotificationPayload(String? payload) {
   if (litterMatch != null) return '/litters/${litterMatch.group(1)}';
 
   return '/dashboard';
+}
+
+/// Builds the reminder title from the target name (F07 rule 7, literal).
+///
+/// - Individual care: `Rappel soin — {puppyName}`.
+/// - Group care: `Rappel soin — Portée de {motherName}` (the litter model has
+///   no name, so the mother's name qualifies it).
+String reminderTitle({String? puppyName, String? motherName}) {
+  if (puppyName != null && puppyName.trim().isNotEmpty) {
+    return 'Rappel soin — $puppyName';
+  }
+  if (motherName != null && motherName.trim().isNotEmpty) {
+    return 'Rappel soin — Portée de $motherName';
+  }
+  return 'Rappel soin';
+}
+
+/// Builds the reminder body: `{Type} — {produit}`, product omitted when null or
+/// blank (F07 rule 7).
+String reminderBody({required String type, String? product}) {
+  final typeLabel = switch (type) {
+    'vaccine' => 'Vaccin',
+    'deworming' => 'Vermifuge',
+    _ => 'Soin',
+  };
+  if (product == null || product.trim().isEmpty) return typeLabel;
+  return '$typeLabel — $product';
 }

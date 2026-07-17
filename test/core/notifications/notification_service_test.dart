@@ -1,8 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/core/notifications/inotification_service.dart';
-
-import '../../helpers/mock_notification_service.dart';
 
 void main() {
   group('parseNotificationPayload (deep-link routing)', () {
@@ -35,86 +32,56 @@ void main() {
     });
   });
 
-  group('MockNotificationService.rescheduleAll', () {
-    late MockNotificationService service;
-
-    setUp(() {
-      service = MockNotificationService();
+  group('reminderTitle (F07 rule 7 — target name)', () {
+    test('individual care → "Rappel soin — {puppyName}"', () {
+      expect(
+        reminderTitle(puppyName: 'Orphée'),
+        'Rappel soin — Orphée',
+      );
     });
 
-    test(
-      'schedules only future reminders, skips past and null-reminder ones',
-      () {
-        final now = DateTime.now();
-        final entries = [
-          CareEntry(
-            id: 1,
-            type: 'vaccine',
-            product: 'Rabigen',
-            appliedAt: now,
-            puppyId: 10,
-            reminderAt: now.add(const Duration(days: 2)), // future → scheduled
-          ),
-          CareEntry(
-            id: 2,
-            type: 'deworming',
-            product: 'Milbemax',
-            appliedAt: now,
-            litterId: 5,
-            reminderAt: now.subtract(const Duration(days: 1)), // past → skipped
-          ),
-          CareEntry(
-            id: 3,
-            type: 'vaccine',
-            product: 'Rabigen',
-            appliedAt: now,
-            puppyId: 11,
-            // reminderAt null → skipped
-          ),
-        ];
+    test('group care → "Rappel soin — Portée de {motherName}"', () {
+      expect(
+        reminderTitle(motherName: 'Salsa'),
+        'Rappel soin — Portée de Salsa',
+      );
+    });
 
-        service.rescheduleAll(entries);
+    test('no name available → degraded "Rappel soin"', () {
+      expect(reminderTitle(), 'Rappel soin');
+      expect(reminderTitle(puppyName: ''), 'Rappel soin');
+      expect(reminderTitle(motherName: '   '), 'Rappel soin');
+    });
+  });
 
-        // Only the future one (id 1) is scheduled; past (id 2) and null (id 3)
-        // are skipped. This mirrors NotificationService's past-date guard.
-        expect(service.scheduled, [
-          (id: 1, payload: '/puppies/10'),
-        ]);
-        expect(service.rescheduledBatches.length, 1);
-      },
-    );
+  group('reminderBody (F07 rule 7 — type and product)', () {
+    test('vaccine with product → "Vaccin — {produit}"', () {
+      expect(
+        reminderBody(type: 'vaccine', product: 'CHPPIL'),
+        'Vaccin — CHPPIL',
+      );
+    });
 
-    test('idempotent: two calls schedule the same set of ids', () {
-      final now = DateTime.now();
-      final entries = [
-        CareEntry(
-          id: 1,
-          type: 'vaccine',
-          product: 'Rabigen',
-          appliedAt: now,
-          puppyId: 10,
-          reminderAt: now.add(const Duration(days: 2)),
-        ),
-        CareEntry(
-          id: 2,
-          type: 'vaccine',
-          product: 'Rabigen',
-          appliedAt: now,
-          puppyId: 11,
-          reminderAt: now.add(const Duration(days: 3)),
-        ),
-      ];
+    test('deworming with product → "Vermifuge — {produit}"', () {
+      expect(
+        reminderBody(type: 'deworming', product: 'Milbemax'),
+        'Vermifuge — Milbemax',
+      );
+    });
 
-      service.rescheduleAll(entries);
-      final firstRun = List<({int id, String payload})>.from(service.scheduled);
+    test('unknown type → "Soin — {produit}"', () {
+      expect(
+        reminderBody(type: 'other', product: 'Doliprane'),
+        'Soin — Doliprane',
+      );
+    });
 
-      service.scheduled.clear();
-      service.rescheduleAll(entries);
-      final secondRun = service.scheduled;
+    test('null product → type only (product omitted)', () {
+      expect(reminderBody(type: 'vaccine', product: null), 'Vaccin');
+    });
 
-      // Re-scheduling the same ids replaces (idempotent): same set both times.
-      expect(secondRun, firstRun);
-      expect(service.rescheduledBatches.length, 2);
+    test('blank product → type only (product omitted)', () {
+      expect(reminderBody(type: 'deworming', product: '  '), 'Vermifuge');
     });
   });
 }

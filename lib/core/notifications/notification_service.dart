@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:portea_client/portea_client.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -177,54 +176,6 @@ class NotificationService implements INotificationService {
   }
 
   @override
-  Future<void> rescheduleAll(List<CareEntry> entries) async {
-    final now = DateTime.now();
-    for (final entry in entries) {
-      final reminderAt = entry.reminderAt;
-      final id = entry.id;
-      if (reminderAt == null || id == null) continue;
-      if (!reminderAt.isAfter(now)) continue;
-      await scheduleReminder(
-        notificationId: id,
-        scheduledAt: reminderAt,
-        title: _titleFor(entry),
-        body: _bodyFor(entry),
-        payload: _payloadFor(entry),
-      );
-    }
-  }
-
-  @override
   String handleNotificationPayload(String? payload) =>
       parseNotificationPayload(payload);
-
-  /// Builds the reminder title from the care entry's product. See F07 rule 7
-  /// (adapted: product/type-based, no name lookup).
-  static String _titleFor(CareEntry entry) {
-    final product = (entry.product == null || entry.product!.trim().isEmpty)
-        ? 'Soin sans produit'
-        : entry.product;
-    return 'Rappel : $product';
-  }
-
-  /// Builds the reminder body. Group care (litter target) gets a "(portée)"
-  /// qualifier; individual care (puppy target) does not.
-  static String _bodyFor(CareEntry entry) {
-    final typeLabel = switch (entry.type) {
-      'vaccine' => 'Vaccin',
-      'deworming' => 'Vermifuge',
-      _ => 'Soin',
-    };
-    final isGroup = entry.puppyId == null && entry.litterId != null;
-    final target = isGroup ? ' (portée)' : '';
-    return '$typeLabel$target prévu aujourd\'hui';
-  }
-
-  /// Deep-link payload: `/puppies/<id>` for individual care, `/litters/<id>`
-  /// for group care (the parent entry carries the reminderAt).
-  static String _payloadFor(CareEntry entry) {
-    if (entry.puppyId != null) return '/puppies/${entry.puppyId}';
-    if (entry.litterId != null) return '/litters/${entry.litterId}';
-    return '/dashboard';
-  }
 }
