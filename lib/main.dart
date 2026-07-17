@@ -18,7 +18,7 @@ import 'features/breeders/data/repositories/serverpod_breeder_repository.dart';
 import 'features/litters/domain/repositories/i_litter_repository.dart';
 import 'features/litters/data/repositories/serverpod_litter_repository.dart';
 import 'features/puppies/domain/repositories/i_puppy_repository.dart';
-import 'features/puppies/data/repositories/mock_puppy_repository.dart';
+import 'features/puppies/data/repositories/serverpod_puppy_repository.dart';
 import 'features/puppies/domain/repositories/i_weighing_repository.dart';
 import 'features/puppies/data/repositories/mock_weighing_repository.dart';
 import 'features/puppies/domain/repositories/i_care_repository.dart';
@@ -68,7 +68,7 @@ void main() async {
   final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = ServerpodBreederRepository(client);
   final litterRepository = ServerpodLitterRepository(client);
-  final puppyRepository = MockPuppyRepository();
+  final puppyRepository = ServerpodPuppyRepository(client);
   final weighingRepository = MockWeighingRepository();
   final careRepository = MockCareRepository();
   final settingsRepository = MockSettingsRepository();
@@ -200,12 +200,21 @@ void main() async {
                 breederRepository: breederRepo,
               ),
         ),
-        ChangeNotifierProxyProvider<IPuppyRepository, PuppyBatchViewModel>(
+        ChangeNotifierProxyProvider2<
+          IKennelRepository,
+          IPuppyRepository,
+          PuppyBatchViewModel
+        >(
           create: (context) => PuppyBatchViewModel(
+            kennelRepository: context.read<IKennelRepository>(),
             puppyRepository: context.read<IPuppyRepository>(),
           ),
-          update: (context, repo, prev) =>
-              prev ?? PuppyBatchViewModel(puppyRepository: repo),
+          update: (context, kennelRepo, puppyRepo, prev) =>
+              prev ??
+              PuppyBatchViewModel(
+                kennelRepository: kennelRepo,
+                puppyRepository: puppyRepo,
+              ),
         ),
         ChangeNotifierProxyProvider2<
           IPuppyRepository,

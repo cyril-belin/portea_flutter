@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
+import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_weighing_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_care_repository.dart';
@@ -34,35 +35,107 @@ void main() {
       expect(nonExistent, isNull);
     });
 
-    test('createPuppiesBatch adds puppies of that litter to DB', () async {
-      final listBefore = await repository.getPuppies(1);
-      expect(listBefore.length, equals(3));
+    test(
+      'savePuppiesBatch inserts new puppies (id null) and assigns ids',
+      () async {
+        // Start from an empty litter to assert pure inserts.
+        final fresh = await repository.savePuppiesBatch(
+          2, // no seeded puppy for litter 2
+          [
+            Puppy(
+              litterId: 2,
+              name: 'Nouveau 1',
+              sex: 'female',
+              birthWeight: 310,
+              status: 'available',
+            ),
+            Puppy(
+              litterId: 2,
+              name: 'Nouveau 2',
+              sex: 'male',
+              birthWeight: 320,
+              status: 'available',
+            ),
+          ],
+        );
 
-      final batch = <Puppy>[
-        Puppy(
-          id: 10,
-          litterId: 1,
-          name: 'Nouveau Chiot 1',
-          sex: 'female',
-          birthWeight: 310,
-          status: 'available',
-        ),
-        Puppy(
-          id: 11,
-          litterId: 1,
-          name: 'Nouveau Chiot 2',
-          sex: 'male',
-          birthWeight: 320,
-          status: 'available',
-        ),
-      ];
+        expect(fresh.length, equals(2));
+        expect(fresh.every((p) => p.id != null), isTrue);
+        expect(fresh.every((p) => p.litterId == 2), isTrue);
+      },
+    );
 
-      await repository.createPuppiesBatch(batch);
+    test(
+      'savePuppiesBatch updates existing puppies (id present), no duplication',
+      () async {
+        final seeded = await repository.getPuppies(1);
+        expect(seeded.length, equals(3));
+        final original = seeded.firstWhere((p) => p.name.startsWith('Chiot 1'));
 
-      final listAfter = await repository.getPuppies(1);
-      expect(listAfter.length, equals(5));
-      expect(listAfter.any((p) => p.name == 'Nouveau Chiot 1'), isTrue);
-    });
+        final after = await repository.savePuppiesBatch(
+          1,
+          [
+            Puppy(
+              id: original.id,
+              litterId: 1,
+              name: 'Nouveau nom',
+              sex: original.sex,
+              status: original.status,
+            ),
+            // Drop the other two: they should be deleted.
+          ],
+        );
+
+        expect(after.length, equals(1)); // no duplication, the others removed
+        expect(after.first.id, equals(original.id));
+        expect(after.first.name, equals('Nouveau nom'));
+      },
+    );
+
+    test(
+      'savePuppiesBatch is idempotent: replaying the same payload is a no-op',
+      () async {
+        final first = await repository.savePuppiesBatch(
+          3,
+          [
+            Puppy(
+              litterId: 3,
+              name: 'A',
+              sex: 'female',
+              status: 'available',
+            ),
+            Puppy(
+              litterId: 3,
+              name: 'B',
+              sex: 'male',
+              status: 'available',
+            ),
+          ],
+        );
+
+        // Replay with the ids now assigned.
+        final second = await repository.savePuppiesBatch(
+          3,
+          first
+              .map(
+                (p) => Puppy(
+                  id: p.id,
+                  litterId: 3,
+                  name: p.name,
+                  sex: p.sex,
+                  status: p.status,
+                ),
+              )
+              .toList(),
+        );
+
+        expect(second.length, equals(first.length));
+        expect(
+          second.map((p) => p.id).toSet(),
+          equals(first.map((p) => p.id).toSet()),
+        );
+      },
+    );
 
     test('updatePuppy updates details', () async {
       final puppy = await repository.getPuppy(1);
@@ -169,55 +242,164 @@ void main() {
 
   group('PuppyBatchViewModel', () {
     late MockPuppyRepository puppyRepo;
+    late MockKennelRepository kennelRepo;
     late PuppyBatchViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
       puppyRepo = MockPuppyRepository();
-      viewModel = PuppyBatchViewModel(puppyRepository: puppyRepo);
+      kennelRepo = MockKennelRepository();
+      // The mock kennel starts null; create it so species resolves to 'dog'.
+      // Individual tests can re-create with species 'cat' to assert the label.
+      kennelRepo.createKennel(
+        Kennel(
+          name: 'Élevage test',
+          species: 'dog',
+          createdAt: DateTime.now(),
+        ),
+      );
+      viewModel = PuppyBatchViewModel(
+        kennelRepository: kennelRepo,
+        puppyRepository: puppyRepo,
+      );
     });
 
-    test('loadLitterPuppies pre-fills with existing puppies', () async {
-      final existing = await puppyRepo.getPuppies(1);
-      viewModel.loadLitterPuppies(existing);
+    test(
+      'loadLitterPuppies loads the real puppies (no mock pre-fill)',
+      () async {
+        // Litter 1 is seeded with 3 puppies in the mock DB.
+        await viewModel.loadLitterPuppies(1);
 
-      expect(viewModel.items.length, equals(3));
-      expect(viewModel.items[0].name, equals('Chiot 1 (Orphée)'));
+        expect(viewModel.items.length, equals(3));
+        expect(viewModel.items[0].name, equals('Chiot 1 (Orphée)'));
+        // Real ids are carried — that is what makes the save idempotent.
+        expect(viewModel.items.every((i) => i.id != null), isTrue);
+      },
+    );
+
+    test('loadLitterPuppies on an empty litter yields an empty form', () async {
+      // Litter 999 has no puppies — the form must be empty (not pre-filled).
+      await viewModel.loadLitterPuppies(999);
+
+      expect(viewModel.items, isEmpty);
     });
 
-    test('loadLitterPuppies pre-fills with defaults when litter is empty', () {
-      viewModel.loadLitterPuppies([]);
-      expect(viewModel.items.length, equals(3));
-      expect(viewModel.items[0].name, equals('Chiot 1'));
-    });
-
-    test('addItem and removeItem modify items count', () {
-      viewModel.loadLitterPuppies([]);
-      expect(viewModel.items.length, equals(3));
+    test('addItem appends a species-specific default name', () async {
+      await viewModel.loadLitterPuppies(999); // empty
+      expect(viewModel.items, isEmpty);
 
       viewModel.addItem();
-      expect(viewModel.items.length, equals(4));
-      expect(viewModel.items.last.name, equals('Chiot 4'));
-
-      viewModel.removeItem(3);
-      expect(viewModel.items.length, equals(3));
+      expect(viewModel.items.length, equals(1));
+      expect(viewModel.items.first.name, equals('Chiot 1'));
     });
 
-    test('updateSex modifies sex of item', () {
-      viewModel.loadLitterPuppies([]);
-      expect(viewModel.items[0].sex, equals('female'));
+    test('addItem uses "Chaton" when the kennel species is cat', () async {
+      await kennelRepo.createKennel(
+        Kennel(name: 'Chatterie', species: 'cat', createdAt: DateTime.now()),
+      );
+      await viewModel.loadLitterPuppies(999);
+
+      viewModel.addItem();
+      expect(viewModel.items.first.name, equals('Chaton 1'));
+      expect(viewModel.youngNoun, equals('chaton'));
+    });
+
+    test('removeItem drops a row even when it is the last one', () async {
+      await viewModel.loadLitterPuppies(999);
+      viewModel.addItem();
+      expect(viewModel.items.length, equals(1));
+
+      viewModel.removeItem(0);
+      expect(viewModel.items, isEmpty);
+    });
+
+    test('updateSex modifies the sex of an item', () async {
+      await viewModel.loadLitterPuppies(999);
+      viewModel.addItem();
+      expect(viewModel.items.first.sex, equals('female'));
 
       viewModel.updateSex(0, 'male');
-      expect(viewModel.items[0].sex, equals('male'));
+      expect(viewModel.items.first.sex, equals('male'));
     });
 
-    test('saveBatch saves puppies to repository', () async {
-      viewModel.loadLitterPuppies([]); // fills Chiot 1, 2, 3
+    test(
+      'saveBatch inserts new puppies and reloads with assigned ids',
+      () async {
+        await viewModel.loadLitterPuppies(999); // empty
+        viewModel.addItem();
+        viewModel.addItem();
+        viewModel.items.first.name = 'Rex';
+
+        final result = await viewModel.saveBatch(999);
+        expect(result, isTrue);
+
+        // After the save+reload, the items carry their server-assigned ids.
+        expect(viewModel.items.length, equals(2));
+        expect(viewModel.items.every((i) => i.id != null), isTrue);
+        expect(viewModel.items.any((i) => i.name == 'Rex'), isTrue);
+
+        // Persisted to the repository.
+        final dbList = await puppyRepo.getPuppies(999);
+        expect(dbList.length, equals(2));
+      },
+    );
+
+    test('saveBatch edits an existing puppy without duplicating it', () async {
+      await viewModel.loadLitterPuppies(1); // 3 seeded puppies
+      final originalCount = viewModel.items.length;
+      viewModel.items.first.name = 'Nouveau nom';
+
       final result = await viewModel.saveBatch(1);
       expect(result, isTrue);
 
+      // Same count (no duplication), edited name reflected.
+      expect(viewModel.items.length, equals(originalCount));
+      expect(viewModel.items.first.name, equals('Nouveau nom'));
+
       final dbList = await puppyRepo.getPuppies(1);
-      expect(dbList.length, equals(6)); // 3 original + 3 saved
+      expect(dbList.length, equals(originalCount));
+      expect(dbList.any((p) => p.name == 'Nouveau nom'), isTrue);
+    });
+
+    test('saveBatch dropping a row deletes that puppy', () async {
+      await viewModel.loadLitterPuppies(1); // 3 seeded puppies
+      viewModel.removeItem(0);
+
+      final result = await viewModel.saveBatch(1);
+      expect(result, isTrue);
+
+      expect(viewModel.items.length, equals(2));
+      final dbList = await puppyRepo.getPuppies(1);
+      expect(dbList.length, equals(2));
+    });
+
+    test('saveBatch twice with no change is idempotent (same ids)', () async {
+      await viewModel.loadLitterPuppies(999);
+      viewModel.addItem();
+      viewModel.addItem();
+
+      await viewModel.saveBatch(999);
+      final idsAfterFirst = viewModel.items.map((i) => i.id).toList()..sort();
+
+      await viewModel.saveBatch(999);
+      final idsAfterSecond = viewModel.items.map((i) => i.id).toList()..sort();
+
+      expect(viewModel.items.length, equals(2));
+      expect(idsAfterSecond, equals(idsAfterFirst));
+    });
+
+    test('youngNounPlural and capitalized reflect the species', () async {
+      await viewModel.loadLitterPuppies(999);
+      expect(viewModel.youngNoun, equals('chiot'));
+      expect(viewModel.youngNounPlural, equals('chiots'));
+      expect(viewModel.youngNounCapitalized, equals('Chiot'));
+
+      await kennelRepo.createKennel(
+        Kennel(name: 'Chatterie', species: 'cat', createdAt: DateTime.now()),
+      );
+      await viewModel.loadLitterPuppies(999);
+      expect(viewModel.youngNoun, equals('chaton'));
+      expect(viewModel.youngNounPlural, equals('chatons'));
     });
   });
 

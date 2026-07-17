@@ -47,22 +47,70 @@ class MockPuppyRepository implements IPuppyRepository {
   }
 
   @override
-  Future<List<Puppy>> createPuppiesBatch(List<Puppy> puppies) async {
-    await Future.delayed(const Duration(milliseconds: 250));
-    final createdList = <Puppy>[];
-    for (final p in puppies) {
-      final created = await createPuppy(p);
-      createdList.add(created);
-    }
-    return createdList;
-  }
-
-  @override
   Future<void> updatePuppy(Puppy puppy) async {
     await Future.delayed(const Duration(milliseconds: 150));
     final idx = _db.puppies.indexWhere((p) => p.id == puppy.id);
     if (idx != -1) {
       _db.puppies[idx] = puppy;
     }
+  }
+
+  /// Mock implementation of the idempotent batch save, mirroring the server
+  /// semantics so unit tests on the view model exercise the real flow.
+  ///
+  /// Note: the deletion guard (history blocks delete) is trivially true here,
+  /// matching the server in F04 — the weighing/care tables are mock-only and
+  /// not checked. See F05/F06.
+  @override
+  Future<List<Puppy>> savePuppiesBatch(int litterId, List<Puppy> items) async {
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    // Remove puppies of this litter that are absent from the payload.
+    final keptIds = items.where((p) => p.id != null).map((p) => p.id!).toSet();
+    _db.puppies.removeWhere(
+      (p) => p.litterId == litterId && !keptIds.contains(p.id),
+    );
+
+    // Insert new puppies (id null), update existing ones (id present).
+    for (final item in items) {
+      if (item.id == null) {
+        await createPuppy(
+          Puppy(
+            litterId: litterId,
+            name: item.name,
+            sex: item.sex,
+            color: item.color,
+            status: item.status,
+            chipNumber: item.chipNumber,
+            birthWeight: item.birthWeight,
+            photoUrl: item.photoUrl,
+            buyerName: item.buyerName,
+            buyerPhone: item.buyerPhone,
+            buyerEmail: item.buyerEmail,
+            buyerAddress: item.buyerAddress,
+          ),
+        );
+      } else {
+        await updatePuppy(
+          Puppy(
+            id: item.id,
+            litterId: litterId,
+            name: item.name,
+            sex: item.sex,
+            color: item.color,
+            status: item.status,
+            chipNumber: item.chipNumber,
+            birthWeight: item.birthWeight,
+            photoUrl: item.photoUrl,
+            buyerName: item.buyerName,
+            buyerPhone: item.buyerPhone,
+            buyerEmail: item.buyerEmail,
+            buyerAddress: item.buyerAddress,
+          ),
+        );
+      }
+    }
+
+    return getPuppies(litterId);
   }
 }
