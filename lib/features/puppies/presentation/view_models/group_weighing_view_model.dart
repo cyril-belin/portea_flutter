@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../domain/repositories/i_weighing_repository.dart';
 
 class GroupWeighingItem {
@@ -23,11 +25,20 @@ class GroupWeighingViewModel extends ChangeNotifier {
     required IWeighingRepository weighingRepository,
   }) : _weighingRepository = weighingRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   List<GroupWeighingItem> _items = [];
-  List<GroupWeighingItem> get items => _items;
+  // Claim 2.6: never expose the mutable backing list.
+  List<GroupWeighingItem> get items => List.unmodifiable(_items);
 
   DateTime _weighedAt = DateTime.now();
   DateTime get weighedAt => _weighedAt;
@@ -40,7 +51,10 @@ class GroupWeighingViewModel extends ChangeNotifier {
   /// repository call (anti-N+1, review claim 3.5). A puppy that has never been
   /// weighed falls back to its birth weight.
   Future<void> loadLitterPuppies(int litterId) async {
-    _isLoading = true;
+    // Refresh vs first load: existing items stay visible during a reload.
+    final hasData = _items.isNotEmpty;
+    _state = hasData ? OperationState.refreshing : OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -55,10 +69,11 @@ class GroupWeighingViewModel extends ChangeNotifier {
             lastWeight: r.lastWeighing?.weightGrams ?? r.puppy.birthWeight,
           ),
       ];
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
@@ -72,7 +87,9 @@ class GroupWeighingViewModel extends ChangeNotifier {
   /// produce an entry). A single batched call carries them all; the server
   /// validates and applies them transactionally.
   Future<bool> saveWeighingSession() async {
-    _isLoading = true;
+    if (_state == OperationState.mutating) return false;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -91,12 +108,14 @@ class GroupWeighingViewModel extends ChangeNotifier {
       if (entries.isNotEmpty) {
         await _weighingRepository.addWeighings(entries);
       }
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      _isLoading = false;
+      _state = OperationState.success;
       notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      notifyListeners();
+      return false;
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/animal_list_tile.dart';
 import '../../../../core/widgets/empty_state_widget.dart';
@@ -30,8 +31,17 @@ class _BreedersListScreenState extends State<BreedersListScreen> {
       appBar: AppBar(
         title: const Text('Reproducteurs'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.state == OperationState.loading
           ? const Center(child: CircularProgressIndicator())
+          : viewModel.state == OperationState.error &&
+                viewModel.breeders.isEmpty
+          ? EmptyStateWidget(
+              icon: Icons.cloud_off_rounded,
+              title: 'Impossible de charger les reproducteurs',
+              subtitle: viewModel.errorMessage!,
+              primaryActionLabel: 'Réessayer',
+              onPrimaryAction: () => viewModel.loadBreeders(),
+            )
           : Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1100),

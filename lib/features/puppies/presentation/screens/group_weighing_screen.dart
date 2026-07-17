@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/group_weighing_view_model.dart';
@@ -61,8 +62,28 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
       appBar: AppBar(
         title: const Text('Pesée groupée'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.state == OperationState.loading
           ? const Center(child: CircularProgressIndicator())
+          : viewModel.state == OperationState.error && viewModel.items.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 48),
+                    const SizedBox(height: 12),
+                    Text(viewModel.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () =>
+                          viewModel.loadLitterPuppies(widget.litterId),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1100),
@@ -173,7 +194,8 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
                               final messenger = ScaffoldMessenger.of(context);
                               final success = await viewModel
                                   .saveWeighingSession();
-                              if (success && mounted) {
+                              if (!mounted) return;
+                              if (success) {
                                 // Refresh litter detail
                                 litterDetailVm.loadLitterDetail(
                                   widget.litterId,
@@ -183,6 +205,15 @@ class _GroupWeighingScreenState extends State<GroupWeighingScreen> {
                                   const SnackBar(
                                     content: Text(
                                       'Pesée de la portée enregistrée',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      viewModel.errorMessage ??
+                                          'Enregistrement impossible.',
                                     ),
                                   ),
                                 );

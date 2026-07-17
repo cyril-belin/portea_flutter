@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../domain/repositories/i_kennel_repository.dart';
 
 /// Drives the onboarding flow and its routing.
@@ -31,8 +33,16 @@ class OnboardingViewModel extends ChangeNotifier {
 
   static const _onboardingCompletedKey = 'onboarding_completed';
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   /// Whether the user is currently authenticated.
   bool get isAuthenticated => _authListenable?.value ?? false;
@@ -75,16 +85,24 @@ class OnboardingViewModel extends ChangeNotifier {
 
   /// Called when the auth state changes. Resolves the kennel from the server
   /// and reads the persisted onboarding-completed flag.
+  ///
+  /// On a server/network failure, [hasKennel] and [isOnboardingCompleted] are
+  /// left untouched and [errorMessage] is populated — this keeps the
+  /// legitimate "no kennel yet" state (getKennel returns null without throwing)
+  /// distinct from "the server is unreachable" (claim 4.5 connexe).
   void _onAuthChanged() async {
     if (!isAuthenticated) {
       _hasKennel = false;
       _isOnboardingCompleted = false;
       _kennel = null;
+      _errorMessage = null;
+      _state = OperationState.idle;
       notifyListeners();
       return;
     }
 
-    _isLoading = true;
+    _state = OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -92,12 +110,15 @@ class OnboardingViewModel extends ChangeNotifier {
       _hasKennel = _kennel != null;
       final prefs = await SharedPreferences.getInstance();
       _isOnboardingCompleted = prefs.getBool(_onboardingCompletedKey) ?? false;
-    } catch (_) {
-      _kennel = null;
-      _hasKennel = false;
-      _isOnboardingCompleted = false;
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      // NOTE: _hasKennel / _isOnboardingCompleted are deliberately NOT reset
+      // here — a transient network failure must not be mistaken for "the user
+      // has no kennel". The legitimate "no kennel" case is getKennel returning
+      // null without throwing, handled above.
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
@@ -113,8 +134,10 @@ class OnboardingViewModel extends ChangeNotifier {
 
   Future<bool> createKennel() async {
     if (_kennelName.trim().isEmpty) return false;
+    if (_state == OperationState.mutating) return false;
 
-    _isLoading = true;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -128,12 +151,14 @@ class OnboardingViewModel extends ChangeNotifier {
       _hasKennel = _kennel != null;
       // NOTE: onboarding is NOT complete here — the user must still pass the
       // notifications screen, which calls completeOnboarding().
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      _isLoading = false;
+      _state = OperationState.success;
       notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      notifyListeners();
+      return false;
     }
   }
 

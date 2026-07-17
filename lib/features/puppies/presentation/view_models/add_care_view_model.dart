@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../domain/repositories/i_puppy_repository.dart';
 import '../../domain/repositories/i_care_repository.dart';
 
@@ -13,8 +15,16 @@ class AddCareViewModel extends ChangeNotifier {
   }) : _puppyRepository = puppyRepository,
        _careRepository = careRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   Future<bool> saveCareEntry({
     required String type, // 'vaccine' | 'deworming' | 'other'
@@ -26,7 +36,9 @@ class AddCareViewModel extends ChangeNotifier {
     DateTime? reminderDate,
     String? notes,
   }) async {
-    _isLoading = true;
+    if (_state == OperationState.mutating) return false;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -69,12 +81,14 @@ class AddCareViewModel extends ChangeNotifier {
         );
         await _careRepository.addCareEntry(entry);
       }
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      _isLoading = false;
+      _state = OperationState.success;
       notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      notifyListeners();
+      return false;
     }
   }
 }

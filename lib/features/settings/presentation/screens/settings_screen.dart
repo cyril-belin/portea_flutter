@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/settings_view_model.dart';
@@ -48,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<SettingsViewModel>();
 
-    if (viewModel.isLoading) {
+    if (viewModel.state == OperationState.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -110,11 +111,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // Refresh other affected ViewModels
                       if (mounted) {
                         dashboardVm.loadDashboard();
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Réglages enregistrés'),
-                          ),
-                        );
+                        if (viewModel.errorMessage != null) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(viewModel.errorMessage!)),
+                          );
+                        } else {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Réglages enregistrés'),
+                            ),
+                          );
+                        }
                       }
                     }
                   },

@@ -5,14 +5,28 @@ import '../../domain/repositories/i_puppy_repository.dart';
 class MockPuppyRepository implements IPuppyRepository {
   final _db = MockDatabase.instance;
 
+  /// When non-null, the next repository call throws this. Consumed on first
+  /// call, then reset to null.
+  Object? throwOnNext;
+
+  Future<void> _maybeThrow() async {
+    final pending = throwOnNext;
+    if (pending != null) {
+      throwOnNext = null;
+      throw pending;
+    }
+  }
+
   @override
   Future<List<Puppy>> getPuppies(int litterId) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 150));
     return List.unmodifiable(_db.puppies.where((p) => p.litterId == litterId));
   }
 
   @override
   Future<Puppy?> getPuppy(int id) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     try {
       return _db.puppies.firstWhere((p) => p.id == id);
@@ -23,6 +37,7 @@ class MockPuppyRepository implements IPuppyRepository {
 
   @override
   Future<Puppy> createPuppy(Puppy puppy) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 150));
     final newId = _db.puppies.isEmpty
         ? 1
@@ -48,6 +63,7 @@ class MockPuppyRepository implements IPuppyRepository {
 
   @override
   Future<void> updatePuppy(Puppy puppy) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 150));
     final idx = _db.puppies.indexWhere((p) => p.id == puppy.id);
     if (idx != -1) {
@@ -63,6 +79,7 @@ class MockPuppyRepository implements IPuppyRepository {
   /// not checked. See F05/F06.
   @override
   Future<List<Puppy>> savePuppiesBatch(int litterId, List<Puppy> items) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 250));
 
     // Remove puppies of this litter that are absent from the payload.

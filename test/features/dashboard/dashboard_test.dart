@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/dashboard/presentation/view_models/dashboard_view_model.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/breeders/data/repositories/mock_breeder_repository.dart';
@@ -38,14 +39,16 @@ void main() {
       );
     });
 
-    test('initial states', () {
-      expect(viewModel.isLoading, isFalse);
+    test('initial state is idle and not busy', () {
+      expect(viewModel.state, OperationState.idle);
+      expect(viewModel.isBusy, isFalse);
       expect(viewModel.kennel, isNull);
       expect(viewModel.activeLitter, isNull);
       expect(viewModel.activeLitterPuppies, isEmpty);
       expect(viewModel.upcomingReminders, isEmpty);
       expect(viewModel.motherName, isNull);
       expect(viewModel.isPremium, isFalse);
+      expect(viewModel.errorMessage, isNull);
     });
 
     test(
@@ -59,11 +62,13 @@ void main() {
         ); // Initialize the kennel repo
 
         final future = viewModel.loadDashboard();
-        expect(viewModel.isLoading, isTrue);
+        expect(viewModel.isBusy, isTrue);
+        expect(viewModel.state, OperationState.loading);
 
         await future;
 
-        expect(viewModel.isLoading, isFalse);
+        expect(viewModel.isBusy, isFalse);
+        expect(viewModel.state, OperationState.success);
         expect(viewModel.isPremium, isFalse);
         expect(viewModel.kennel, isNotNull);
         expect(viewModel.kennel!.name, equals("L'Élevage des Terres Dorées"));
@@ -77,6 +82,16 @@ void main() {
         ); // reminderAt is in future
       },
     );
+
+    test('loadDashboard failure sets errorMessage and error state', () async {
+      kennelRepository.throwOnNext = Exception('boom');
+
+      await viewModel.loadDashboard();
+
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(viewModel.kennel, isNull);
+    });
 
     test('loadDashboard handles no active litter', () async {
       // Arrange: clear litters from db

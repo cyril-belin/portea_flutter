@@ -5,8 +5,21 @@ import '../../domain/repositories/i_care_repository.dart';
 class MockCareRepository implements ICareRepository {
   final _db = MockDatabase.instance;
 
+  /// When non-null, the next repository call throws this. Consumed on first
+  /// call, then reset to null.
+  Object? throwOnNext;
+
+  Future<void> _maybeThrow() async {
+    final pending = throwOnNext;
+    if (pending != null) {
+      throwOnNext = null;
+      throw pending;
+    }
+  }
+
   @override
   Future<List<CareEntry>> getCareEntries({int? puppyId, int? litterId}) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     var results = _db.careEntries;
     if (puppyId != null) {
@@ -20,6 +33,7 @@ class MockCareRepository implements ICareRepository {
 
   @override
   Future<void> addCareEntry(CareEntry entry) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     final newId = _db.careEntries.isEmpty
         ? 1
@@ -42,6 +56,7 @@ class MockCareRepository implements ICareRepository {
 
   @override
   Future<List<CareEntry>> getUpcomingReminders(int limit) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     final now = DateTime.now();
     final reminders = _db.careEntries

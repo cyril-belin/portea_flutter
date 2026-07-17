@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../onboarding/domain/repositories/i_kennel_repository.dart';
 import '../../../litters/domain/repositories/i_litter_repository.dart';
 import '../../../breeders/domain/repositories/i_breeder_repository.dart';
@@ -29,8 +31,16 @@ class DashboardViewModel extends ChangeNotifier {
        _careRepository = careRepository,
        _settingsRepository = settingsRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   Kennel? _kennel;
   Kennel? get kennel => _kennel;
@@ -39,10 +49,14 @@ class DashboardViewModel extends ChangeNotifier {
   Litter? get activeLitter => _activeLitter;
 
   List<Puppy> _activeLitterPuppies = [];
-  List<Puppy> get activeLitterPuppies => _activeLitterPuppies;
+  // Claim 2.6: never expose the mutable backing list.
+  List<Puppy> get activeLitterPuppies =>
+      List.unmodifiable(_activeLitterPuppies);
 
   List<CareEntry> _upcomingReminders = [];
-  List<CareEntry> get upcomingReminders => _upcomingReminders;
+  // Claim 2.6: never expose the mutable backing list.
+  List<CareEntry> get upcomingReminders =>
+      List.unmodifiable(_upcomingReminders);
 
   String? _motherName;
   String? get motherName => _motherName;
@@ -51,7 +65,11 @@ class DashboardViewModel extends ChangeNotifier {
   bool get isPremium => _isPremium;
 
   Future<void> loadDashboard() async {
-    _isLoading = true;
+    // Refresh vs first load: existing dashboard data stays visible during a
+    // reload (pulled-to-refresh, post-mutation refresh).
+    final hasData = _kennel != null;
+    _state = hasData ? OperationState.refreshing : OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -75,10 +93,11 @@ class DashboardViewModel extends ChangeNotifier {
       }
 
       _upcomingReminders = await _careRepository.getUpcomingReminders(3);
-    } catch (_) {
-      // Handle error quietly in mock mode
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }

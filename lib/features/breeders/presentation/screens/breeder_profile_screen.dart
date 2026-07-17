@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/breeder_profile_view_model.dart';
@@ -84,7 +85,7 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
       appBar: AppBar(
         title: Text(isEditing ? 'Fiche Reproducteur' : 'Nouveau Reproducteur'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.state == OperationState.loading
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -329,6 +330,9 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                   final listVm = context
                                       .read<BreederListViewModel>();
                                   final goRouter = GoRouter.of(context);
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
                                   final success = await viewModel.saveBreeder(
                                     name: _nameController.text.trim(),
                                     sex: _sex,
@@ -338,9 +342,19 @@ class _BreederProfileScreenState extends State<BreederProfileScreen> {
                                     tattooNumber: _tattooController.text.trim(),
                                     status: _status,
                                   );
-                                  if (success && mounted) {
+                                  if (!mounted) return;
+                                  if (success) {
                                     listVm.loadBreeders();
                                     goRouter.pop();
+                                  } else {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          viewModel.errorMessage ??
+                                              'Enregistrement impossible.',
+                                        ),
+                                      ),
+                                    );
                                   }
                                 }
                               },

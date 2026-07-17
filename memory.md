@@ -1,4 +1,4 @@
-# Memory — Portea (état post-F04 développé, non mergé)
+# Memory — Portea (post session gestion d'erreur ViewModels)
 
 Last updated: 2026-07-17
 
@@ -6,141 +6,107 @@ Last updated: 2026-07-17
 
 ## État du projet
 
-**F01, F02, F03, F03-bis** TERMINÉS, validés et **mergés sur `main`** (deux repos).
-**F04 Chiots** DÉVELOPPÉ ce jour sur branche `feat/f04-chiots` des deux repos,
-**validation locale verte**, **non mergé** (attente smoke test utilisateur +
-purge manuelle des chiots dupliqués en base locale avant merge).
+Le socle fonctionnel F01→F06 est développé. Cette session a posé un **pattern
+transverse de gestion d'erreur** dans les ViewModels Flutter (claims review
+externe 2.1 / 2.3 / 2.6) — pas une feature.
 
-| Fonctionnalité | Backend | Frontend | main |
+| Fonctionnalité | Backend | Frontend | État |
 |----------------|---------|----------|------|
-| F01 Onboarding | Serverpod | Serverpod | mergé |
-| F02 Reproducteurs | Serverpod | Serverpod | mergé |
-| F03 Portées (freemium) | Serverpod | Serverpod | mergé |
-| F03-bis Hardening litter | Serverpod | non touché | mergé |
-| **F04 Chiots (batch idempotent)** | **Serverpod** | **Serverpod** | **feat/f04-chiots, à merger** |
-| F05-F10 | mock | UI mock | — |
+| F01 Onboarding | mergé main | mergé main | ✓ |
+| F02 Reproducteurs | mergé main | mergé main | ✓ |
+| F03 Portées (freemium) | mergé main | mergé main | ✓ |
+| F03-bis Hardening litter | mergé main | — | ✓ |
+| F04 Chiots (batch idempotent) | mergé main | mergé main | ✓ |
+| F05 Pesées | feat/f05-pesees | feat/f05-pesees | développé, à merger |
+| F06 Soins | (cf branches feat/f06) | (cf branches feat/f06) | développé |
+| **Refactor gestion d'erreur** | **non touché** | **refactor/error-handling** | **développé, à merger** |
 
-- portea_server : branche `feat/f04-chiots`, commit `54b0056` (sur main `ed96718`).
-- portea_flutter : branche `feat/f04-chiots`, commit `5f2bd9b` (sur main `b36ee72`).
-- **Push origin pas fait** (sur toutes branches, comme avant).
-
----
-
-## F04 — ce qui a été fait
-
-### Backend (portea_server, commit `54b0056`)
-- `lib/src/models/puppy.spy.yaml` : clé **`table: puppy`** ajoutée (même piège
-  que litter — sans elle rien n'était persisté) + champ **`cessionDate: DateTime?`**
-  posé dès maintenant pour F08 (**aucune logique F04 dessus**).
-- **Exceptions sérialisables** (pattern `.spy.yaml`, pas de migration) :
-  - `invalid_puppy_relation_exception.spy.yaml` — item.id n'appartenant pas au
-    litter / puppy introuvable.
-  - `puppy_deletion_not_allowed_exception.spy.yaml` — suppression refusée
-    (historique présent).
-  - `InvalidLitterRelationException` (existante) reste **réservée aux cas litter**
-    (litter introuvable/étranger).
-- `lib/src/endpoints/puppy_endpoint.dart` (pattern F02/F03 : requireLogin,
-  kennel dérivé session, anti-forge) :
-  - `getPuppies(litterId)` : assert litter ∈ kennel session.
-  - `getPuppy(id)` : foreign puppy → **null** (cohérent avec getLitter/getBreeder,
-    ne leak jamais l'existence).
-  - **`savePuppiesBatch(litterId, items)`** — cœur F04 : **une seule
-    `session.db.transaction`**. id null → insert ; id présent → update après
-    vérif appartenance litter (forgé → `InvalidPuppyRelationException`, rien
-    écrit) ; chiots en base absents des items → delete si `_canDelete` (check
-    codé mais **trivialement vrai en F04** — tables pesées/soins inexistantes,
-    TODO F05/F06). Retourne la liste fraîche. Échec → rollback, aucune écriture
-    partielle.
-- Migration `20260717104830956` : CREATE TABLE `puppy` (+ cessionDate).
-- `test/integration/puppy_endpoint_test.dart` : **12 cas** (unauth, isolation
-  inter-kennels getPuppies/savePuppiesBatch/getPuppy, anti-forge item.id →
-  rollback total, édition sans duplication, idempotence double-save même ids,
-  drop-line → delete, échec mid-batch → litter inchangée).
-- **Suite serveur : 44/44 verts** (`dart test --concurrency=1`). `dart analyze` : 0.
-
-### Frontend (portea_flutter, commit `5f2bd9b`)
-- `IPuppyRepository` : `createPuppiesBatch` → **`savePuppiesBatch(litterId, items)`
-  → `List<Puppy>`**. `MockPuppyRepository` adapte (miroir sémantique serveur).
-- **`ServerpodPuppyRepository`** (nouveau, `client.puppy.*`), swappé dans `main.dart`.
-- **`PuppyBatchViewModel` réécrit** (correction bugs verdict 4.1) :
-  - `PuppyBatchItem` gagne **`int? id`** (clé de l'idempotence).
-  - Injecte **`IKennelRepository`** ; `loadLitterPuppies(litterId)` async résout
-    `species` elle-même (l'écran ne pousse rien), charge via le repo. **Suppression
-    des 3 mocks en dur**. Litter vide → form vide.
-  - `saveBatch` envoie items avec ids, recharge depuis le serveur (nouveaux ids).
-  - Libellés **« Chiot N »/« Chaton N »** dérivés de `Kennel.species` (getters
-    `youngNoun`/`youngNounPlural`/`youngNounCapitalized`). **Zéro chaîne espèce en dur**.
-- **`puppy_batch_creation_screen.dart`** : `loadLitterPuppies(widget.litterId)`
-  (fin du `[]` littéral) ; état vide chargé → bouton d'ajout ; libellés
-  species-aware ; SnackBar sur échec.
-- `main.dart` : `PuppyBatchViewModel` passe en `ChangeNotifierProxyProvider2<
-  IKennelRepository, IPuppyRepository, ...>`.
-- `test/features/puppies/puppies_test.dart` : tests `PuppyBatchViewModel` **réécrits**
-  (les anciens validaient le bug — ex. `dbList.length == 6` après édition).
-  11 nouveaux cas VM + 3 Mock savePuppiesBatch.
-- **Suite flutter : 77/77 verts.** `flutter analyze` : 0 issues.
-
-### Correction des 3 retours utilisateur (vs plan initial)
-1. **Exception dédiée** `InvalidPuppyRelationException` (pas réutilisation de
-   `InvalidLitterRelationException` pour les cas puppy).
-2. **`IKennelRepository` injecté** dans le VM (pas de setter alimenté par l'écran) ;
-   `loadLitterPuppies` résout species seule.
-3. **Test transaction échec** : harnais par défaut (rollback niché), pas de
-   `RollbackDatabase.disabled`.
+- portea_server : branche `feat/f05-pesees`, commit `70f72ab`. **Non touché cette session.**
+- portea_flutter : branche `refactor/error-handling` (issue de `feat/f05-pesees`),
+  commit `a81704b`. **Push origin pas fait. Le merge = l'utilisateur.**
 
 ---
 
-## Validation F04 (référence pour smoke test / merge)
+## Ce qui a été fait cette session — refactor gestion d'erreur
 
-- `dart test --concurrency=1` (serveur) : **44/44 verts** (32 existants + 12 puppy).
-- `flutter test` : **77/77 verts**.
-- `dart analyze` (serveur) + `flutter analyze` : **0 warning**.
-- Migration appliquée (`20260717104830956`). `hot_restart` MCP : OK, pas d'erreur
-  runtime dans `tail_flutter_logs` / `tail_server_logs`.
+Pattern posé une fois, appliqué aux 12 ViewModels. 11 commits atomiques.
 
-### À FAIRE AVANT MERGE (par l'utilisateur)
-- **Purger les chiots dupliqués** créés lors des tests du 2026-07-17 (base locale)
-  — sinon le smoke test est invérifiable. **C'est l'utilisateur qui le fait.**
-- Smoke test manuel (création batch, édition sans duplication, espèce cat).
-- Puis : merge `--no-ff` par l'utilisateur + suppression branche.
+### Le pattern (lib/core/errors/)
+- `operation_state.dart` : `enum OperationState { idle, loading, refreshing,
+  mutating, success, error }`. Remplace le booléen `_isLoading` unique (claim
+  2.3). `refreshing` = données existantes préservées ; `mutating` = bloque la
+  double-soumission.
+- `error_mapper.dart` : `mapExceptionToMessage(Object) → String`. Dispatche :
+  - les **6 exceptions typées** Serverpod → leur message métier français (déjà
+    authored dans les `.spy.yaml` côté serveur, transporté typé) :
+    `InvalidLitterRelation`, `InvalidPuppyRelation`, `PuppyDeletionNotAllowed`,
+    `InvalidWeighingRelation`, `InvalidWeighingInput`.
+  - `ActiveLitterLimitException` → **délibérément NON mappée** (signal paywall,
+    géré en amont par le VM). Test verrouille ce contrat.
+  - `ServerpodClientException(statusCode -1)` → réseau ; `401` → session
+    expirée ; `TimeoutException`/`SocketException` → réseau ; reste → générique.
+- Convention VM : `state` + `errorMessage` (null = pas d'erreur) + `isBusy`.
+
+### Les 12 ViewModels migrés
+`Settings`, `BreederList`, `BreederProfile`, `Litters`, `LitterDetail`,
+`LitterDeclaration`, `Dashboard`, `Onboarding`, `PuppyFile`, `AddCare`,
+`GroupWeighing`, `PuppyBatch`.
+
+Pour chacun : `catch (_) {}` silencieux → catch qui alimente `errorMessage` +
+`state=error`. **11 getters de listes → `List.unmodifiable`** (claim 2.6).
+Mutations optimistes avec rollback/reload sur échec.
+
+### Fix smoke test F05 (PuppyBatchViewModel)
+`saveBatch` en échec **recharge `_items` depuis le repository** (source of
+truth) au lieu de laisser la liste amputée par les `removeItem()` de l'écran.
+Résultat : suppression de chiot refusée par le serveur
+(`PuppyDeletionNotAllowedException`) → SnackBar « Ce chiot possède un
+historique… » + ligne réapparait immédiatement. Test dédié.
+
+### Écrans
+Câblés au fil des commits (un écran par VM). SnackBar pour mutations, état
+d'erreur inline pour chargements. Aucun nouveau composant. Faux messages de
+réussite (claim 2.2) rendus conditionnels au succès sur settings, puppy_file,
+add_care, group_weighing.
+
+### Mocks de test
+Tous les Mock*Repository ont gagné un setter `throwOnNext` (consommé au
+premier appel) pour simuler une erreur. Permet les tests d'erreur des VMs.
 
 ---
 
-## Pattern F04 — ajout transportable (au pattern F01-F03-bis)
+## Validation
+- `dart analyze lib/ test/` → **0 issue**.
+- `dart format` → propre.
+- `flutter test` → **111/111 tests passent** (15 mapper + tests VM d'erreur
+  ajoutés à chaque groupe existant). IMPORTANT : `dart test` (CLI nu) échoue
+  sur cet env à cause d'un mismatch SDK Flutter/Dart (switch exhaustifs du
+  framework) — utiliser `flutter test`.
 
-- **Batch idempotent transactionnel** : une seule `session.db.transaction((tx) async {...})`
-  englobant inserts/updates/deletes ; id null → insert, id présent → update après
-  vérif d'appartenance (anti-forge via findFirstRow id & parent), absents du
-  payload → delete (avec garde métier). Retourne l'état frais. Tout échec →
-  exception typée → rollback automatique.
-- **`getPuppy` foreign → null** (pas d'exception) pour rester cohérent avec les
-  getters existants (getLitter/getBreeder retournent null sur foreign).
-- **`.spy.yaml` exception avec message contenant parenthèses/apostrophes** : le
-  parseur inline casse sur `default="...(...)"`. Simplifier le message (éviter
-  les parenthèses) ou le format marche. Apostrophes simples OK.
-- **VM qui dépend de Kennel.species** : injecter `IKennelRepository`, résoudre
-  dans la méthode de load (un seul point d'entrée), jamais de setter alimenté
-  par l'écran (ordre d'init fragile). Getters publics pour les libellés.
+---
+
+## Reste hors périmètre (noté, PAS touché — autres sessions)
+- Non-atomicité des soins groupés (verdict 4.3 : boucle d'await indépendants,
+  entrées partielles possibles mid-boucle). Chantier serveur.
+- `catch (_) {}` du placeholder Premium F10 (`portea_premium_screen.dart`,
+  faux achat test — claim 2.2).
+- Clé `onboarding_completed` globale au terminal (claim 4.5) — mais la
+  confusion « pas de kennel vs serveur injoignable » a été corrigée dans
+  `_onAuthChanged` (les flags ne sont plus reset sur erreur réseau).
+- Claims 3.1 (écrans 300+ lignes), 3.2 (dynamic), 3.5 (N+1 déjà résolu F05),
+  4.4 (cessionDate), 4.6 (routing id invalide) — autres chantiers.
 
 ---
 
 ## Next session starts with
+1. **Merge** : `refactor/error-handling` → l'utilisateur décide du moment.
+   Cette branche **dépend de `feat/f05-pesees`** (issue de celle-ci) — merger
+   F05 d'abord, ou rebaser.
+2. **Smoke test F05 à rejouer manuellement** : supprimer un chiot avec
+   historique de pesées → doit donner SnackBar métier + ligne revenue.
+3. Vérifier qu'aucun écran n'a été oublié au câblage (j'ai câblé chaque écran
+   au fil de l'eau, mais un repassage visuel reste utile).
 
-**F04 développé et validé localement, en attente de smoke test + purge base +
-merge par l'utilisateur.** Si l'utilisateur confirme le merge, reprendre sur
-**F05 (Pesées)** ou **F06 (Soins groupés)** — les TODO `_canDelete` dans
-`puppy_endpoint.dart` pointent exactement où décommenter les checks de suppression
-une fois ces tables créées (le verrou anti-suppression-avec-historique est déjà
-en place, trivialement vrai tant que les tables n'existent pas).
-
-Rappel config : `dart test --concurrency=1` (parallèle cassé, claim 5.1).
-
----
-
-## Contraintes de session (rappel, inchangées)
-
-- Doc Serverpod v4 obligatoire — via context7.
-- **Tu ne lances PAS le serveur** : tu demandes `serverpod start` + run simulateur.
-- Toute idée hors périmètre → 1 ligne `ROADMAP.md`, zéro discussion.
-- Workflow git : branche `feat/fXX-*`, commits atomiques, INTERDIT commit/push
-  sur main, merge `--no-ff` (user) après smoke test.
+## Open questions
+- Faut-il étendre le pattern `OperationState` aux futurs VMs F07-F10 dès leur
+  création ? (Recommandé : oui, c'est la convention maintenant.)

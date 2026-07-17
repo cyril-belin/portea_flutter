@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/puppy_batch_view_model.dart';
 import '../../../litters/presentation/view_models/litter_detail_view_model.dart';
@@ -37,7 +38,7 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
       appBar: AppBar(
         title: Text('Saisie des ${viewModel.youngNounPlural}'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.state == OperationState.loading
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -309,11 +310,16 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                   litterDetailVm.loadLitterDetail(widget.litterId);
                   goRouter.go('/litters/${widget.litterId}');
                 } else {
+                  // F05 smoke test: the refused puppy (e.g. with a weighing
+                  // history) has just reappeared in the list (VM reloads from
+                  // source of truth on failure); surface the server-authored
+                  // business message from the mapper.
                   messenger.showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
-                        'Échec de l\'enregistrement. Vérifiez votre connexion '
-                        'et réessayez.',
+                        vm.errorMessage ??
+                            'Échec de l\'enregistrement. Vérifiez votre connexion '
+                                'et réessayez.',
                       ),
                     ),
                   );

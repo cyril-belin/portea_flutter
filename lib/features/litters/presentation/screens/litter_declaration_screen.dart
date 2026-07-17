@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/litter_declaration_view_model.dart';
@@ -63,8 +64,30 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
       appBar: AppBar(
         title: const Text('Déclarer une portée'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.state == OperationState.loading
           ? const Center(child: CircularProgressIndicator())
+          : viewModel.state == OperationState.error
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      viewModel.errorMessage!,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () => viewModel.loadBreedersForDeclaration(),
+                      child: const Text('Réessayer'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 650),
@@ -265,7 +288,11 @@ class _LitterDeclarationScreenState extends State<LitterDeclarationScreen> {
                               }
                             }
                           },
-                          child: const Text('Déclarer la portée'),
+                          child: Text(
+                            viewModel.state == OperationState.mutating
+                                ? 'Déclaration…'
+                                : 'Déclarer la portée',
+                          ),
                         ),
                       ],
                     ),

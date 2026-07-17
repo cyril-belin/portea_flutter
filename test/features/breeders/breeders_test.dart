@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/breeders/data/repositories/mock_breeder_repository.dart';
 import 'package:portea_flutter/features/breeders/presentation/view_models/breeder_list_view_model.dart';
 import 'package:portea_flutter/features/breeders/presentation/view_models/breeder_profile_view_model.dart';
@@ -71,19 +72,33 @@ void main() {
       viewModel = BreederListViewModel(breederRepository: repository);
     });
 
-    test('initial states', () {
-      expect(viewModel.isLoading, isFalse);
+    test('initial state is idle and not busy', () {
+      expect(viewModel.state, OperationState.idle);
+      expect(viewModel.isBusy, isFalse);
       expect(viewModel.breeders, isEmpty);
+      expect(viewModel.errorMessage, isNull);
     });
 
     test('loadBreeders loads breeders', () async {
       final future = viewModel.loadBreeders();
-      expect(viewModel.isLoading, isTrue);
+      expect(viewModel.isBusy, isTrue);
+      expect(viewModel.state, OperationState.loading);
 
       await future;
 
-      expect(viewModel.isLoading, isFalse);
+      expect(viewModel.isBusy, isFalse);
+      expect(viewModel.state, OperationState.success);
       expect(viewModel.breeders.length, equals(2));
+    });
+
+    test('loadBreeders failure sets errorMessage and error state', () async {
+      repository.throwOnNext = Exception('boom');
+
+      await viewModel.loadBreeders();
+
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(viewModel.breeders, isEmpty);
     });
   });
 
@@ -97,20 +112,49 @@ void main() {
       viewModel = BreederProfileViewModel(breederRepository: repository);
     });
 
-    test('initial states', () {
-      expect(viewModel.isLoading, isFalse);
+    test('initial state is idle and not busy', () {
+      expect(viewModel.state, OperationState.idle);
+      expect(viewModel.isBusy, isFalse);
       expect(viewModel.breeder, isNull);
     });
 
     test('loadBreeder loads a breeder and sets state', () async {
       final future = viewModel.loadBreeder(1);
-      expect(viewModel.isLoading, isTrue);
+      expect(viewModel.isBusy, isTrue);
+      expect(viewModel.state, OperationState.loading);
 
       await future;
 
-      expect(viewModel.isLoading, isFalse);
+      expect(viewModel.isBusy, isFalse);
+      expect(viewModel.state, OperationState.success);
       expect(viewModel.breeder, isNotNull);
       expect(viewModel.breeder!.name, equals('Salsa'));
+    });
+
+    test('saveBreeder failure rolls back breeder and returns false', () async {
+      await viewModel.loadBreeder(1);
+      final originalName = viewModel.breeder!.name;
+      expect(originalName, equals('Salsa'));
+
+      repository.throwOnNext = Exception('boom');
+      final result = await viewModel.saveBreeder(
+        name: 'Devrait être rejeté',
+        sex: 'female',
+        breed: 'Golden Retriever',
+        birthDate: DateTime(2023, 5, 5),
+        chipNumber: '',
+        tattooNumber: '',
+        status: 'active',
+      );
+
+      expect(result, isFalse);
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(
+        viewModel.breeder!.name,
+        equals(originalName),
+        reason: 'optimistic mutation must roll back on failure',
+      );
     });
 
     test('setupNewBreeder resets breeder to null', () async {

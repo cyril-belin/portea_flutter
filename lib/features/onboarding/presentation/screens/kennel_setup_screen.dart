@@ -206,7 +206,18 @@ class _KennelSetupScreenState extends State<KennelSetupScreen> {
                       onChanged: (val) => viewModel.affix = val,
                     ),
                     const SizedBox(height: 40),
-                    if (viewModel.isLoading)
+                    if (viewModel.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Text(
+                          viewModel.errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    if (viewModel.isBusy)
                       const Center(child: CircularProgressIndicator())
                     else
                       ElevatedButton(

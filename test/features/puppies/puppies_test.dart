@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_weighing_repository.dart';
@@ -455,6 +456,51 @@ void main() {
       expect(viewModel.youngNoun, equals('chaton'));
       expect(viewModel.youngNounPlural, equals('chatons'));
     });
+
+    test(
+      'F05 smoke test: refused deletion reappears immediately and surfaces '
+      'the server message',
+      () async {
+        // Litter 1 is seeded with 3 puppies; puppy 1 has a weighing history.
+        await viewModel.loadLitterPuppies(1);
+        expect(viewModel.items.length, equals(3));
+        final removedId = viewModel.items.first.id;
+        final removedName = viewModel.items.first.name;
+
+        // The user removes puppy 1 from the form, then saves.
+        viewModel.removeItem(0);
+        expect(viewModel.items.length, equals(2));
+        expect(viewModel.items.any((i) => i.id == removedId), isFalse);
+
+        // The server refuses the batch save (e.g. puppy has a weighing history
+        // and cannot be deleted — PuppyDeletionNotAllowedException).
+        puppyRepo.throwOnNext = PuppyDeletionNotAllowedException();
+        final result = await viewModel.saveBatch(1);
+
+        expect(result, isFalse, reason: 'save must report failure');
+        expect(viewModel.state, OperationState.error);
+        expect(
+          viewModel.errorMessage,
+          contains('historique'),
+          reason: 'business message from the typed exception',
+        );
+
+        // F05 fix: the refused-deletion puppy reappears in the list right away,
+        // rather than staying gone until a manual reload.
+        expect(
+          viewModel.items.length,
+          equals(3),
+          reason: 'refused removal must be reverted from the source of truth',
+        );
+        expect(
+          viewModel.items.any(
+            (i) => i.id == removedId && i.name == removedName,
+          ),
+          isTrue,
+          reason: 'the exact removed row must come back',
+        );
+      },
+    );
   });
 
   group('GroupWeighingViewModel', () {
@@ -498,6 +544,21 @@ void main() {
       final weighings2 = await weighingRepo.getWeighings(2);
       expect(weighings2.last.weightGrams, equals(1400.0));
     });
+
+    test(
+      'saveWeighingSession failure surfaces errorMessage and returns false',
+      () async {
+        await viewModel.loadLitterPuppies(1);
+        viewModel.updateWeight(0, 1900.0);
+        weighingRepo.throwOnNext = Exception('boom');
+
+        final result = await viewModel.saveWeighingSession();
+
+        expect(result, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
   });
 
   group('PuppyFileViewModel', () {
@@ -569,6 +630,35 @@ void main() {
         expect(viewModel.weighings.last.weightGrams, equals(1950.0));
       },
     );
+
+    test('loadPuppyFile failure sets errorMessage and error state', () async {
+      puppyRepo.throwOnNext = Exception('boom');
+
+      await viewModel.loadPuppyFile(1);
+
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(viewModel.puppy, isNull);
+    });
+
+    test(
+      'updateStatus failure rolls back status and surfaces errorMessage',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        expect(viewModel.puppy!.status, equals('available'));
+
+        puppyRepo.throwOnNext = Exception('boom');
+        await viewModel.updateStatus('reserved');
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(
+          viewModel.puppy!.status,
+          equals('available'),
+          reason: 'optimistic mutation must roll back on failure',
+        );
+      },
+    );
   });
 
   group('AddCareViewModel', () {
@@ -628,5 +718,23 @@ void main() {
       expect(puppy2Care.any((c) => c.product == 'Milbemax'), isTrue);
       expect(puppy3Care.any((c) => c.product == 'Milbemax'), isTrue);
     });
+
+    test(
+      'saveCareEntry failure surfaces errorMessage and returns false',
+      () async {
+        careRepo.throwOnNext = Exception('boom');
+
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+        );
+
+        expect(result, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
   });
 }

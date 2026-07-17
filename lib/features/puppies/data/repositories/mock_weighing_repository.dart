@@ -5,8 +5,21 @@ import '../../domain/repositories/i_weighing_repository.dart';
 class MockWeighingRepository implements IWeighingRepository {
   final _db = MockDatabase.instance;
 
+  /// When non-null, the next repository call throws this. Consumed on first
+  /// call, then reset to null.
+  Object? throwOnNext;
+
+  Future<void> _maybeThrow() async {
+    final pending = throwOnNext;
+    if (pending != null) {
+      throwOnNext = null;
+      throw pending;
+    }
+  }
+
   @override
   Future<List<WeighingEntry>> getWeighings(int puppyId) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     final entries = _db.weighings.where((w) => w.puppyId == puppyId).toList();
     entries.sort((a, b) => a.weighedAt.compareTo(b.weighedAt));
@@ -15,6 +28,7 @@ class MockWeighingRepository implements IWeighingRepository {
 
   @override
   Future<void> addWeighing(WeighingEntry entry) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     final newId = _db.weighings.isEmpty
         ? 1
@@ -31,6 +45,7 @@ class MockWeighingRepository implements IWeighingRepository {
 
   @override
   Future<void> addWeighings(List<WeighingEntry> entries) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 150));
     for (final entry in entries) {
       await addWeighing(entry);
@@ -41,6 +56,7 @@ class MockWeighingRepository implements IWeighingRepository {
   Future<List<PuppyWithLastWeighing>> getPuppiesWithLastWeighing(
     int litterId,
   ) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 120));
     // Puppies of the litter, in id order (mirrors the server endpoint).
     final puppies = _db.puppies.where((p) => p.litterId == litterId).toList()
