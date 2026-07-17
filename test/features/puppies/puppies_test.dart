@@ -658,5 +658,23 @@ void main() {
       expect(puppy2Care.any((c) => c.product == 'Milbemax'), isTrue);
       expect(puppy3Care.any((c) => c.product == 'Milbemax'), isTrue);
     });
+
+    test(
+      'saveCareEntry failure surfaces errorMessage and returns false',
+      () async {
+        careRepo.throwOnNext = Exception('boom');
+
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+        );
+
+        expect(result, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
   });
 }

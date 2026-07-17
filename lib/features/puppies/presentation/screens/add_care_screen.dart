@@ -69,7 +69,7 @@ class _AddCareScreenState extends State<AddCareScreen> {
       appBar: AppBar(
         title: const Text('Ajouter un soin'),
       ),
-      body: viewModel.isLoading
+      body: viewModel.isBusy
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -312,7 +312,8 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                     : _notesController.text.trim(),
                               );
 
-                              if (success && mounted) {
+                              if (!mounted) return;
+                              if (success) {
                                 // Refresh callers
                                 litterDetailVm.loadLitterDetail(
                                   widget.litterId,
@@ -322,6 +323,15 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                 messenger.showSnackBar(
                                   const SnackBar(
                                     content: Text('Soin enregistré'),
+                                  ),
+                                );
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      viewModel.errorMessage ??
+                                          'Enregistrement impossible.',
+                                    ),
                                   ),
                                 );
                               }
