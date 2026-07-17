@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
+import 'package:portea_flutter/core/data/mock_database.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_weighing_repository.dart';
@@ -199,6 +200,59 @@ void main() {
       expect(weighings1.last.weightGrams, equals(2100));
       expect(weighings2.last.weightGrams, equals(1500));
     });
+
+    test(
+      'getPuppiesWithLastWeighing returns each puppy with its most recent '
+      'weight (anti-N+1)',
+      () async {
+        // Litter 1 has puppies 1, 2, 3, all with weighings in the seed.
+        final rows = await repository.getPuppiesWithLastWeighing(1);
+
+        expect(rows.length, equals(3));
+        // Puppies come back in id order.
+        expect(rows[0].puppy.id, equals(1));
+        expect(rows[1].puppy.id, equals(2));
+        expect(rows[2].puppy.id, equals(3));
+        // lastWeighing is the most recent by weighedAt.
+        expect(rows[0].lastWeighing, isNotNull);
+        expect(rows[0].lastWeighing!.weightGrams, equals(1800));
+        expect(rows[2].lastWeighing!.weightGrams, equals(690));
+      },
+    );
+
+    test(
+      'getPuppiesWithLastWeighing returns an empty list for an unknown litter',
+      () async {
+        final rows = await repository.getPuppiesWithLastWeighing(999);
+        expect(rows, isEmpty);
+      },
+    );
+
+    test(
+      'getPuppiesWithLastWeighing gives null lastWeighing for a never-weighed '
+      'puppy',
+      () async {
+        // Litter 1, puppy 1..3 all have weighings. Add a brand-new puppy to
+        // the litter with no weighing, then assert its lastWeighing is null.
+        MockDatabase.instance.puppies.add(
+          Puppy(
+            id: 99,
+            litterId: 1,
+            name: 'Sans pesée',
+            sex: 'female',
+            status: 'available',
+            birthWeight: 300.0,
+          ),
+        );
+
+        final rows = await repository.getPuppiesWithLastWeighing(1);
+        final neverWeighed = rows.firstWhere((r) => r.puppy.id == 99);
+        expect(neverWeighed.lastWeighing, isNull);
+        // The other puppies still carry their last weighing.
+        final weighed = rows.firstWhere((r) => r.puppy.id == 1);
+        expect(weighed.lastWeighing!.weightGrams, equals(1800));
+      },
+    );
   });
 
   group('MockCareRepository', () {
@@ -404,16 +458,13 @@ void main() {
   });
 
   group('GroupWeighingViewModel', () {
-    late MockPuppyRepository puppyRepo;
     late MockWeighingRepository weighingRepo;
     late GroupWeighingViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
-      puppyRepo = MockPuppyRepository();
       weighingRepo = MockWeighingRepository();
       viewModel = GroupWeighingViewModel(
-        puppyRepository: puppyRepo,
         weighingRepository: weighingRepo,
       );
     });
