@@ -11,6 +11,7 @@ import 'package:portea_flutter/features/puppies/presentation/view_models/group_w
 import 'package:portea_flutter/features/puppies/presentation/view_models/puppy_file_view_model.dart';
 import 'package:portea_flutter/features/puppies/presentation/view_models/add_care_view_model.dart';
 import 'package:portea_flutter/features/settings/data/repositories/mock_settings_repository.dart';
+import '../../helpers/mock_notification_service.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -701,12 +702,17 @@ void main() {
 
   group('AddCareViewModel', () {
     late MockCareRepository careRepo;
+    late MockNotificationService notifications;
     late AddCareViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
       careRepo = MockCareRepository();
-      viewModel = AddCareViewModel(careRepository: careRepo);
+      notifications = MockNotificationService();
+      viewModel = AddCareViewModel(
+        careRepository: careRepo,
+        notificationService: notifications,
+      );
     });
 
     test(
@@ -795,6 +801,127 @@ void main() {
         expect(viewModel.state, OperationState.error);
         // The mapper surfaces the typed exception's French business message.
         expect(viewModel.errorMessage, isNotNull);
+      },
+    );
+
+    // ---- F07: reminder scheduling contract ----
+
+    test(
+      'F07: individual care with a reminder schedules one notification with '
+      'the persisted id and the puppy payload',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 10));
+
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+          reminderDate: reminder,
+        );
+
+        expect(result, isTrue);
+        // The seeded DB already has 2 care entries (ids 1, 2), so the new
+        // individual entry gets id 3. The notification id = that entry's id.
+        expect(notifications.scheduled, [
+          (id: 3, payload: '/puppies/1'),
+        ]);
+        // Rule 4: registration NEVER cancels another reminder.
+        expect(notifications.cancelled, isEmpty);
+      },
+    );
+
+    test(
+      'F07: group care with a reminder schedules from the PARENT entry '
+      '(litter payload), never from children',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 12));
+
+        final result = await viewModel.saveCareEntry(
+          type: 'deworming',
+          product: 'Milbemax',
+          date: DateTime.now(),
+          litterId: 1,
+          targetAllLitter: true,
+          reminderDate: reminder,
+        );
+
+        expect(result, isTrue);
+        // The parent entry carries the reminderAt; the notification routes to
+        // the litter (the parent's target), NOT to any puppy. Exactly ONE
+        // schedule — no per-child spam.
+        expect(notifications.scheduled, [
+          (id: 3, payload: '/litters/1'),
+        ]);
+        expect(notifications.cancelled, isEmpty);
+      },
+    );
+
+    test(
+      'F07: care without a reminder schedules nothing',
+      () async {
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+          // reminderDate omitted
+        );
+
+        expect(result, isTrue);
+        expect(notifications.scheduled, isEmpty);
+        expect(notifications.cancelled, isEmpty);
+      },
+    );
+
+    test(
+      'F07: a persistence failure schedules nothing (and never cancels)',
+      () async {
+        careRepo.throwOnNext = InvalidCareInputException();
+
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+          reminderDate: DateTime.now().add(const Duration(days: 5)),
+        );
+
+        expect(result, isFalse);
+        expect(notifications.scheduled, isEmpty);
+        expect(notifications.cancelled, isEmpty);
+      },
+    );
+
+    test(
+      'F07: re-saving the same care (idempotent) schedules the same id — no '
+      'cross-cancellation of other reminders (rule 4)',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 10));
+
+        await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+          reminderDate: reminder,
+        );
+        await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Nobivac',
+          date: DateTime.now(),
+          puppyId: 2,
+          reminderDate: reminder,
+        );
+
+        // Two distinct entries → two distinct ids, both scheduled. The first
+        // is never cancelled when the second is saved.
+        expect(notifications.scheduled.length, 2);
+        expect(
+          notifications.scheduled.map((s) => s.id).toSet(),
+          {3, 4},
+        );
+        expect(notifications.cancelled, isEmpty);
       },
     );
   });
