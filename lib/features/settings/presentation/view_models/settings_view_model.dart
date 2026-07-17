@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../onboarding/domain/repositories/i_kennel_repository.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 
@@ -13,8 +15,18 @@ class SettingsViewModel extends ChangeNotifier {
   }) : _kennelRepository = kennelRepository,
        _settingsRepository = settingsRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  /// True while any load or mutation is in flight. Screens use this to disable
+  /// interactive controls without branching on the exact [state].
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   Kennel? _kennel;
   Kennel? get kennel => _kennel;
@@ -26,7 +38,8 @@ class SettingsViewModel extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   Future<void> loadSettings() async {
-    _isLoading = true;
+    _state = OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -34,10 +47,11 @@ class SettingsViewModel extends ChangeNotifier {
       _isPremium = await _settingsRepository.isPremium();
       final themeStr = await _settingsRepository.getThemeMode();
       _themeMode = _parseThemeMode(themeStr);
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
@@ -53,34 +67,67 @@ class SettingsViewModel extends ChangeNotifier {
     }
   }
 
+  /// Persists the theme choice. Local state is updated optimistically; on
+  /// failure the change is kept (it is purely visual and reversible by the
+  /// user) but an error message is surfaced.
   Future<void> updateThemeMode(ThemeMode mode) async {
+    if (_state == OperationState.mutating) return;
+    final previous = _themeMode;
     _themeMode = mode;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
+
     try {
       await _settingsRepository.setThemeMode(mode.name);
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _themeMode = previous;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
     }
   }
 
+  /// Updates the kennel. Local state is updated optimistically and rolled back
+  /// to the prior value on failure, so a refused edit does not leave a divergent
+  /// screen.
   Future<void> updateKennel(Kennel updatedKennel) async {
-    _isLoading = true;
+    if (_state == OperationState.mutating) return;
+    final previousKennel = _kennel;
+    _kennel = updatedKennel;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
       await _kennelRepository.updateKennel(updatedKennel);
-      _kennel = updatedKennel;
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _kennel = previousKennel;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
 
   Future<void> togglePremium(bool premium) async {
-    await _settingsRepository.setPremium(premium);
-    _isPremium = premium;
+    if (_state == OperationState.mutating) return;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      await _settingsRepository.setPremium(premium);
+      _isPremium = premium;
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
+    }
   }
 }
