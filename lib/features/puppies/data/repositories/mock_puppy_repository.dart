@@ -17,6 +17,37 @@ class MockPuppyRepository implements IPuppyRepository {
     }
   }
 
+  /// Same enum and format checks as the server (leçon F06: the mock enforces
+  /// the same rules so view-model unit tests exercise the real flow).
+  static const _validStatuses = {'available', 'reserved', 'sold'};
+
+  static final _emailRegExp = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
+
+  String? _normalizeOptional(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  void _validateBuyerFields({String? email, String? phone}) {
+    final e = _normalizeOptional(email);
+    if (e != null && !_emailRegExp.hasMatch(e)) {
+      throw InvalidPuppyInputException(
+        message: "L'adresse e-mail de l'acquéreur n'est pas valide.",
+      );
+    }
+    final p = _normalizeOptional(phone);
+    if (p != null) {
+      final digits = p.replaceAll(RegExp(r'[\s.\-()]'), '');
+      final bare = digits.replaceFirst(RegExp(r'^(?:\+33|0033|0)'), '');
+      if (!RegExp(r'^[0-9]{9}$').hasMatch(bare)) {
+        throw InvalidPuppyInputException(
+          message: "Le numéro de téléphone de l'acquéreur n'est pas valide.",
+        );
+      }
+    }
+  }
+
   @override
   Future<List<Puppy>> getPuppies(int litterId) async {
     await _maybeThrow();
@@ -129,5 +160,85 @@ class MockPuppyRepository implements IPuppyRepository {
     }
 
     return getPuppies(litterId);
+  }
+
+  /// Mock mirror of `PuppyEndpoint.updatePuppyStatus`. Applies the SAME rules
+  /// (leçon F06): enum validation, conservation on `available`, MERGE of
+  /// provided buyer* on `reserved`/`sold`, `sold` requires a buyerName
+  /// (provided or already stored), cessionDate default today on first `sold`,
+  /// email/phone format checks. The anti-forge/cross-kennel checks are moot
+  /// here (single-tenant in-memory db) but kept conceptually: a nonexistent
+  /// puppyId throws [InvalidPuppyRelationException].
+  @override
+  Future<Puppy> updatePuppyStatus(
+    int puppyId,
+    String status, {
+    String? buyerName,
+    String? buyerPhone,
+    String? buyerEmail,
+    String? buyerAddress,
+    DateTime? cessionDate,
+  }) async {
+    await _maybeThrow();
+    await Future.delayed(const Duration(milliseconds: 150));
+
+    if (!_validStatuses.contains(status)) {
+      throw InvalidPuppyInputException(
+        message: 'Le statut doit être available, reserved ou sold.',
+      );
+    }
+
+    final idx = _db.puppies.indexWhere((p) => p.id == puppyId);
+    if (idx == -1) {
+      throw InvalidPuppyRelationException(message: 'Le chiot visé est introuvable.');
+    }
+    final puppy = _db.puppies[idx];
+
+    if (status == 'available') {
+      // Conservation: write status only, preserve buyer* and cessionDate.
+      final updated = puppy.copyWith(status: status);
+      _db.puppies[idx] = updated;
+      return updated;
+    }
+
+    final normalizedEmail = _normalizeOptional(buyerEmail);
+    final normalizedPhone = _normalizeOptional(buyerPhone);
+    _validateBuyerFields(email: normalizedEmail, phone: normalizedPhone);
+
+    final mergedName = _normalizeOptional(buyerName) ?? puppy.buyerName;
+    final mergedPhone = normalizedPhone ?? puppy.buyerPhone;
+    final mergedEmail = normalizedEmail ?? puppy.buyerEmail;
+    final mergedAddress = _normalizeOptional(buyerAddress) ?? puppy.buyerAddress;
+
+    if (status == 'sold') {
+      if (mergedName == null) {
+        throw InvalidPuppyInputException(
+          message:
+              "Le nom de l'acquéreur est obligatoire pour un chiot vendu.",
+        );
+      }
+      final effectiveCession = cessionDate ?? puppy.cessionDate ?? DateTime.now();
+      final updated = puppy.copyWith(
+        status: status,
+        buyerName: mergedName,
+        buyerPhone: mergedPhone,
+        buyerEmail: mergedEmail,
+        buyerAddress: mergedAddress,
+        cessionDate: effectiveCession,
+      );
+      _db.puppies[idx] = updated;
+      return updated;
+    }
+
+    // reserved — preserve cessionDate (copyWith leaves it untouched).
+    final updated = puppy.copyWith(
+      status: status,
+      buyerName: mergedName,
+      buyerPhone: mergedPhone,
+      buyerEmail: mergedEmail,
+      buyerAddress: mergedAddress,
+    );
+    _db.puppies[idx] = updated;
+    return updated;
   }
 }

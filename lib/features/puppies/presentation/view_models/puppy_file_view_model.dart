@@ -72,7 +72,9 @@ class PuppyFileViewModel extends ChangeNotifier {
   }
 
   /// Snapshot helper for optimistic-mutation rollback. Serverpod model fields
-  /// are mutable, so we clone the values we may touch before the await.
+  /// are mutable, so we clone the values we may touch before the await. Every
+  /// field is cloned, including cessionDate (F08 — was missing before, a
+  /// latent rollback bug).
   Puppy _snapshot() => Puppy(
     id: _puppy!.id,
     litterId: _puppy!.litterId,
@@ -87,8 +89,18 @@ class PuppyFileViewModel extends ChangeNotifier {
     buyerPhone: _puppy!.buyerPhone,
     buyerEmail: _puppy!.buyerEmail,
     buyerAddress: _puppy!.buyerAddress,
+    cessionDate: _puppy!.cessionDate,
   );
 
+  /// Flips the puppy's status via the dedicated [updatePuppyStatus] endpoint
+  /// (F08). The server is the authority: it validates the enum, enforces the
+  /// `sold`-requires-buyerName rule, and — for `available` — PRESERVES the
+  /// stored buyer* and cessionDate (the conservation rule).
+  ///
+  /// Optimistic on status: the local status is set immediately for a snappy
+  /// chip, then reconciled with the server's returned row. On failure the
+  /// snapshot is restored (no divergent local state). Double-submit guard
+  /// (claim 2.3): ignored if a mutation is already in flight.
   Future<void> updateStatus(String status) async {
     if (_puppy == null) return;
     if (_state == OperationState.mutating) return;
@@ -99,7 +111,11 @@ class PuppyFileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _puppyRepository.updatePuppy(_puppy!);
+      final fresh = await _puppyRepository.updatePuppyStatus(
+        _puppy!.id!,
+        status,
+      );
+      _puppy = fresh;
       _state = OperationState.success;
     } catch (e) {
       _puppy = previous;
@@ -110,6 +126,14 @@ class PuppyFileViewModel extends ChangeNotifier {
     }
   }
 
+  /// Replaces the buyer dossier in full. Routed through the dedicated
+  /// [updatePuppyStatus] endpoint at the puppy's CURRENT status: every buyer
+  /// field is passed explicitly (empty → null), so a field the user cleared
+  /// is genuinely erased. cessionDate is not passed here — it is owned by the
+  /// status flow (set on first `sold`, preserved otherwise).
+  ///
+  /// On failure the snapshot is restored and [errorMessage] is populated via
+  /// the central mapper.
   Future<void> saveBuyerInfo({
     required String name,
     required String phone,
@@ -119,16 +143,20 @@ class PuppyFileViewModel extends ChangeNotifier {
     if (_puppy == null) return;
     if (_state == OperationState.mutating) return;
     final previous = _snapshot();
-    _puppy!.buyerName = name.isEmpty ? null : name;
-    _puppy!.buyerPhone = phone.isEmpty ? null : phone;
-    _puppy!.buyerEmail = email.isEmpty ? null : email;
-    _puppy!.buyerAddress = address.isEmpty ? null : address;
     _state = OperationState.mutating;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _puppyRepository.updatePuppy(_puppy!);
+      final fresh = await _puppyRepository.updatePuppyStatus(
+        _puppy!.id!,
+        _puppy!.status,
+        buyerName: name,
+        buyerPhone: phone,
+        buyerEmail: email,
+        buyerAddress: address,
+      );
+      _puppy = fresh;
       _state = OperationState.success;
     } catch (e) {
       _puppy = previous;

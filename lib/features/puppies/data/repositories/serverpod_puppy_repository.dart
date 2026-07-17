@@ -46,4 +46,25 @@ class ServerpodPuppyRepository implements IPuppyRepository {
   Future<List<Puppy>> savePuppiesBatch(int litterId, List<Puppy> items) {
     return _client.puppy.savePuppiesBatch(litterId, items);
   }
+
+  @override
+  Future<Puppy> updatePuppyStatus(
+    int puppyId,
+    String status, {
+    String? buyerName,
+    String? buyerPhone,
+    String? buyerEmail,
+    String? buyerAddress,
+    DateTime? cessionDate,
+  }) {
+    return _client.puppy.updatePuppyStatus(
+      puppyId,
+      status,
+      buyerName: buyerName,
+      buyerPhone: buyerPhone,
+      buyerEmail: buyerEmail,
+      buyerAddress: buyerAddress,
+      cessionDate: cessionDate,
+    );
+  }
 }
