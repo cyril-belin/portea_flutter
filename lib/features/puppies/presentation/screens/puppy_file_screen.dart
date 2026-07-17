@@ -24,6 +24,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
   final _buyerEmailController = TextEditingController();
   final _buyerAddressController = TextEditingController();
   final _weightController = TextEditingController();
+  final _buyerFormKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -32,12 +33,21 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
       final vm = context.read<PuppyFileViewModel>();
       await vm.loadPuppyFile(widget.id);
       if (vm.puppy != null) {
-        _buyerNameController.text = vm.puppy!.buyerName ?? '';
-        _buyerPhoneController.text = vm.puppy!.buyerPhone ?? '';
-        _buyerEmailController.text = vm.puppy!.buyerEmail ?? '';
-        _buyerAddressController.text = vm.puppy!.buyerAddress ?? '';
+        _syncBuyerControllers(vm.puppy!);
       }
     });
+  }
+
+  /// Re-seeds the buyer form fields from the puppy row. Called after the
+  /// initial load AND whenever the section reappears (status back to
+  /// reserved/sold after an `available` interlude) — otherwise the fields
+  /// would stay stale/empty while the database still holds the buyer dossier
+  /// (the conservation rule keeps it; the UI must reflect it).
+  void _syncBuyerControllers(Puppy puppy) {
+    _buyerNameController.text = puppy.buyerName ?? '';
+    _buyerPhoneController.text = puppy.buyerPhone ?? '';
+    _buyerEmailController.text = puppy.buyerEmail ?? '';
+    _buyerAddressController.text = puppy.buyerAddress ?? '';
   }
 
   @override
@@ -404,7 +414,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
     );
   }
 
-  Widget _buildBuyerSection(dynamic puppy, PuppyFileViewModel vm) {
+  Widget _buildBuyerSection(Puppy puppy, PuppyFileViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -416,8 +426,27 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               child: ChoiceChip(
                 label: const Center(child: Text('Disponible')),
                 selected: puppy.status == 'available',
-                onSelected: (selected) {
-                  if (selected) vm.updateStatus('available');
+                onSelected: (selected) async {
+                  if (!selected) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  await vm.updateStatus('available');
+                  if (!mounted) return;
+                  // On available, the buyer section disappears — but the data
+                  // is conserved in the DB. Surface a success/error.
+                  if (vm.errorMessage != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(vm.errorMessage!)),
+                    );
+                  } else {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Statut mis à jour : disponible. '
+                          'Les infos acquéreur sont conservées.',
+                        ),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
@@ -426,8 +455,23 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               child: ChoiceChip(
                 label: const Center(child: Text('Réservé')),
                 selected: puppy.status == 'reserved',
-                onSelected: (selected) {
-                  if (selected) vm.updateStatus('reserved');
+                onSelected: (selected) async {
+                  if (!selected) return;
+                  final messenger = ScaffoldMessenger.of(context);
+                  await vm.updateStatus('reserved');
+                  if (!mounted) return;
+                  if (vm.errorMessage != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(vm.errorMessage!)),
+                    );
+                  } else {
+                    _syncBuyerControllers(vm.puppy!);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Statut mis à jour : réservé.'),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
@@ -436,8 +480,41 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               child: ChoiceChip(
                 label: const Center(child: Text('Vendu')),
                 selected: puppy.status == 'sold',
-                onSelected: (selected) {
-                  if (selected) vm.updateStatus('sold');
+                onSelected: (selected) async {
+                  if (!selected) return;
+                  // sold requires a buyerName (F08 rule). The server is the
+                  // final authority, but we avoid a pointless round-trip and a
+                  // visual flip-then-revert: if neither a typed nor a stored
+                  // name exists, prompt the user to fill the dossier first.
+                  final hasName =
+                      _buyerNameController.text.trim().isNotEmpty ||
+                      (puppy.buyerName ?? '').isNotEmpty;
+                  if (!hasName) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Renseignez le nom de l\'acquéreur avant de '
+                          'marquer le chiot comme vendu.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  final messenger = ScaffoldMessenger.of(context);
+                  await vm.updateStatus('sold');
+                  if (!mounted) return;
+                  if (vm.errorMessage != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(vm.errorMessage!)),
+                    );
+                  } else {
+                    _syncBuyerControllers(vm.puppy!);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Statut mis à jour : vendu.'),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
@@ -448,65 +525,102 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Informations de l\'acquéreur',
-                    style: AppTextStyles.body.copyWith(
-                      fontWeight: FontWeight.bold,
+              child: Form(
+                key: _buyerFormKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Informations de l\'acquéreur',
+                      style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _buyerNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom & Prénom',
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _buyerNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nom & Prénom',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _buyerPhoneController,
-                    decoration: const InputDecoration(labelText: 'Téléphone'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _buyerEmailController,
-                    decoration: const InputDecoration(labelText: 'E-mail'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _buyerAddressController,
-                    decoration: const InputDecoration(
-                      labelText: 'Adresse postale',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      await vm.saveBuyerInfo(
-                        name: _buyerNameController.text.trim(),
-                        phone: _buyerPhoneController.text.trim(),
-                        email: _buyerEmailController.text.trim(),
-                        address: _buyerAddressController.text.trim(),
-                      );
-                      if (!mounted) return;
-                      if (vm.errorMessage != null) {
-                        messenger.showSnackBar(
-                          SnackBar(content: Text(vm.errorMessage!)),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _buyerPhoneController,
+                      decoration: const InputDecoration(labelText: 'Téléphone'),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        final text = (value ?? '').trim();
+                        if (text.isEmpty) return null; // optional
+                        // Strip separators and the FR country code.
+                        final digits = text.replaceAll(
+                          RegExp(r'[\s.\-()]'),
+                          '',
                         );
-                      } else {
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Infos acquéreur enregistrées'),
-                          ),
+                        final bare = digits.replaceFirst(
+                          RegExp(r'^(?:\+33|0033|0)'),
+                          '',
                         );
-                      }
-                    },
-                    child: const Text('Enregistrer l\'acquéreur'),
-                  ),
-                ],
+                        if (!RegExp(r'^[0-9]{9}$').hasMatch(bare)) {
+                          return 'Numéro de téléphone invalide.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _buyerEmailController,
+                      decoration: const InputDecoration(labelText: 'E-mail'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        final text = (value ?? '').trim();
+                        if (text.isEmpty) return null; // optional
+                        if (!RegExp(
+                          r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
+                        ).hasMatch(text)) {
+                          return 'Adresse e-mail invalide.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _buyerAddressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Adresse postale',
+                      ),
+                      maxLines: 2,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        if (!(_buyerFormKey.currentState?.validate() ??
+                            false)) {
+                          return;
+                        }
+                        final messenger = ScaffoldMessenger.of(context);
+                        await vm.saveBuyerInfo(
+                          name: _buyerNameController.text.trim(),
+                          phone: _buyerPhoneController.text.trim(),
+                          email: _buyerEmailController.text.trim(),
+                          address: _buyerAddressController.text.trim(),
+                        );
+                        if (!mounted) return;
+                        if (vm.errorMessage != null) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(vm.errorMessage!)),
+                          );
+                        } else {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Infos acquéreur enregistrées'),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Enregistrer l\'acquéreur'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

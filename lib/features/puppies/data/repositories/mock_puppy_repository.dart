@@ -190,7 +190,9 @@ class MockPuppyRepository implements IPuppyRepository {
 
     final idx = _db.puppies.indexWhere((p) => p.id == puppyId);
     if (idx == -1) {
-      throw InvalidPuppyRelationException(message: 'Le chiot visé est introuvable.');
+      throw InvalidPuppyRelationException(
+        message: 'Le chiot visé est introuvable.',
+      );
     }
     final puppy = _db.puppies[idx];
 
@@ -208,16 +210,17 @@ class MockPuppyRepository implements IPuppyRepository {
     final mergedName = _normalizeOptional(buyerName) ?? puppy.buyerName;
     final mergedPhone = normalizedPhone ?? puppy.buyerPhone;
     final mergedEmail = normalizedEmail ?? puppy.buyerEmail;
-    final mergedAddress = _normalizeOptional(buyerAddress) ?? puppy.buyerAddress;
+    final mergedAddress =
+        _normalizeOptional(buyerAddress) ?? puppy.buyerAddress;
 
     if (status == 'sold') {
       if (mergedName == null) {
         throw InvalidPuppyInputException(
-          message:
-              "Le nom de l'acquéreur est obligatoire pour un chiot vendu.",
+          message: "Le nom de l'acquéreur est obligatoire pour un chiot vendu.",
         );
       }
-      final effectiveCession = cessionDate ?? puppy.cessionDate ?? DateTime.now();
+      final effectiveCession =
+          cessionDate ?? puppy.cessionDate ?? DateTime.now();
       final updated = puppy.copyWith(
         status: status,
         buyerName: mergedName,
