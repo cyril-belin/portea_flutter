@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
-import '../../domain/repositories/i_puppy_repository.dart';
 import '../../domain/repositories/i_weighing_repository.dart';
 
 class GroupWeighingItem {
@@ -18,14 +17,11 @@ class GroupWeighingItem {
 }
 
 class GroupWeighingViewModel extends ChangeNotifier {
-  final IPuppyRepository _puppyRepository;
   final IWeighingRepository _weighingRepository;
 
   GroupWeighingViewModel({
-    required IPuppyRepository puppyRepository,
     required IWeighingRepository weighingRepository,
-  }) : _puppyRepository = puppyRepository,
-       _weighingRepository = weighingRepository;
+  }) : _weighingRepository = weighingRepository;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -40,27 +36,25 @@ class GroupWeighingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Loads the litter's puppies with their most recent weight in a single
+  /// repository call (anti-N+1, review claim 3.5). A puppy that has never been
+  /// weighed falls back to its birth weight.
   Future<void> loadLitterPuppies(int litterId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final puppies = await _puppyRepository.getPuppies(litterId);
-      final itemsList = <GroupWeighingItem>[];
-      for (final p in puppies) {
-        final weighings = await _weighingRepository.getWeighings(p.id!);
-        final last = weighings.isNotEmpty
-            ? weighings.last.weightGrams
-            : p.birthWeight;
-        itemsList.add(
+      final rows = await _weighingRepository.getPuppiesWithLastWeighing(
+        litterId,
+      );
+      _items = [
+        for (final r in rows)
           GroupWeighingItem(
-            puppyId: p.id!,
-            name: p.name,
-            lastWeight: last,
+            puppyId: r.puppy.id!,
+            name: r.puppy.name,
+            lastWeight: r.lastWeighing?.weightGrams ?? r.puppy.birthWeight,
           ),
-        );
-      }
-      _items = itemsList;
+      ];
     } catch (_) {
       // Ignore
     } finally {
@@ -73,6 +67,10 @@ class GroupWeighingViewModel extends ChangeNotifier {
     _items[index].newWeight = weight;
   }
 
+  /// Persists one weighing per item with a positive, non-null entered weight.
+  /// Empty cells are ignored (rule 4 of the F05 spec — only weighed puppies
+  /// produce an entry). A single batched call carries them all; the server
+  /// validates and applies them transactionally.
   Future<bool> saveWeighingSession() async {
     _isLoading = true;
     notifyListeners();
