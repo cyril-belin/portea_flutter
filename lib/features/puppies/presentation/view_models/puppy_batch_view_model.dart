@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../onboarding/domain/repositories/i_kennel_repository.dart';
 import '../../domain/repositories/i_puppy_repository.dart';
 
+/// One editable row of the batch form. [id] is null for a puppy that does not
+/// exist yet (insert) and non-null for a puppy already persisted (update).
+/// Carrying the id is what makes the save idempotent instead of duplicating on
+/// every edit — see F04 verdict 4.1.
 class PuppyBatchItem {
+  int? id;
   String name;
   String sex; // 'female' | 'male'
   String color;
   double birthWeight;
 
   PuppyBatchItem({
+    this.id,
     required this.name,
     required this.sex,
     required this.color,
@@ -16,69 +23,102 @@ class PuppyBatchItem {
   });
 }
 
+/// View model for the batch creation/edition screen of a litter's puppies.
+///
+/// Loads the real puppies of a litter from the repository (never a hardcoded
+/// mock) and resolves the species-specific label ("Chiot N" / "Chaton N") from
+/// the kennel, so no species string is ever hardcoded in the UI.
+///
+/// Save is idempotent: items carry their id, and the repository's batch save
+/// distinguishes insert (id null) from update (id present) and deletes puppies
+/// absent from the payload. After a successful save the view model reloads
+/// from the source of truth so newly inserted puppies get their assigned ids.
 class PuppyBatchViewModel extends ChangeNotifier {
-  final IPuppyRepository _puppyRepository;
+  PuppyBatchViewModel({
+    required IKennelRepository kennelRepository,
+    required IPuppyRepository puppyRepository,
+  }) : _kennelRepository = kennelRepository,
+       _puppyRepository = puppyRepository;
 
-  PuppyBatchViewModel({required IPuppyRepository puppyRepository})
-    : _puppyRepository = puppyRepository;
+  final IKennelRepository _kennelRepository;
+  final IPuppyRepository _puppyRepository;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  /// Species of the kennel, resolved on load. Defaults to 'dog' until
+  /// [loadLitterPuppies] completes. Drives [_youngLabel].
+  String _species = 'dog';
+  String get species => _species;
+
   List<PuppyBatchItem> _items = [];
   List<PuppyBatchItem> get items => _items;
 
-  void loadLitterPuppies(List<Puppy> existingPuppies) {
-    if (existingPuppies.isNotEmpty) {
-      _items = existingPuppies.map((p) {
-        return PuppyBatchItem(
-          name: p.name,
-          sex: p.sex,
-          color: p.color ?? '',
-          birthWeight: p.birthWeight ?? 0.0,
-        );
-      }).toList();
-    } else {
-      // Default pre-fill with 3 items
-      _items = [
-        PuppyBatchItem(
-          name: 'Chiot 1',
-          sex: 'female',
-          color: 'Fauve',
-          birthWeight: 350.0,
-        ),
-        PuppyBatchItem(
-          name: 'Chiot 2',
-          sex: 'male',
-          color: 'Fauve',
-          birthWeight: 370.0,
-        ),
-        PuppyBatchItem(
-          name: 'Chiot 3',
-          sex: 'female',
-          color: 'Sable',
-          birthWeight: 330.0,
-        ),
-      ];
-    }
+  /// Whether a load or save is running or has populated [items]. Used by the
+  /// screen to distinguish the empty-but-loaded state (show the add button)
+  /// from the not-yet-loaded state.
+  bool get isReady => _items.isNotEmpty;
+
+  /// Species-specific noun for a young animal, singular lowercase ("chiot" or
+  /// "chaton"). Exposed so the screen never hardcodes a species string.
+  String get youngNoun => _species == 'cat' ? 'chaton' : 'chiot';
+
+  /// Plural form of [youngNoun] ("chiots" / "chatons").
+  String get youngNounPlural => '${youngNoun}s';
+
+  /// Capitalized singular noun ("Chiot" / "Chaton"), for sentence starts.
+  String get youngNounCapitalized =>
+      '${youngNoun[0].toUpperCase()}${youngNoun.substring(1)}';
+
+  /// Default name for the Nth row, e.g. "Chiot 1" or "Chaton 3".
+  String _youngLabel(int n) => '$youngNounCapitalized $n';
+
+  /// Loads the real puppies of [litterId] from the repository, resolving the
+  /// species label from the kennel first. A litter with no puppies yields an
+  /// empty form (the screen offers an "add" button) — no mock pre-fill.
+  Future<void> loadLitterPuppies(int litterId) async {
+    _isLoading = true;
     notifyListeners();
+
+    try {
+      final kennel = await _kennelRepository.getKennel();
+      _species = (kennel?.species == 'cat') ? 'cat' : 'dog';
+
+      final existing = await _puppyRepository.getPuppies(litterId);
+      _items = existing
+          .map(
+            (p) => PuppyBatchItem(
+              id: p.id,
+              name: p.name,
+              sex: p.sex,
+              color: p.color ?? '',
+              birthWeight: p.birthWeight ?? 0.0,
+            ),
+          )
+          .toList();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
+  /// Appends a new row with a default species-specific name.
   void addItem() {
-    final nextNum = _items.length + 1;
     _items.add(
       PuppyBatchItem(
-        name: 'Chiot $nextNum',
+        name: _youngLabel(_items.length + 1),
         sex: 'female',
-        color: 'Fauve',
-        birthWeight: 350.0,
+        color: '',
+        birthWeight: 0.0,
       ),
     );
     notifyListeners();
   }
 
+  /// Removes the row at [index]. A single remaining row can still be removed
+  /// (an empty form is valid — the save then clears the litter's puppies).
   void removeItem(int index) {
-    if (_items.length > 1) {
+    if (index >= 0 && index < _items.length) {
       _items.removeAt(index);
       notifyListeners();
     }
@@ -89,26 +129,48 @@ class PuppyBatchViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves the whole batch idempotently, then reloads from the repository so
+  /// newly inserted puppies pick up their server-assigned ids.
+  ///
+  /// Returns true on success, false on failure (the caller surfaces a SnackBar).
   Future<bool> saveBatch(int litterId) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final puppiesToSave = _items.map((item) {
-        return Puppy(
-          litterId: litterId,
-          name: item.name.trim().isEmpty ? 'Chiot' : item.name.trim(),
-          sex: item.sex,
-          color: item.color.trim().isEmpty ? null : item.color.trim(),
-          status: 'available',
-          birthWeight: item.birthWeight,
-        );
-      }).toList();
+      final puppiesToSave = _items
+          .map(
+            (item) => Puppy(
+              id: item.id,
+              litterId: litterId,
+              name: item.name.trim().isEmpty
+                  ? _youngLabel(1)
+                  : item.name.trim(),
+              sex: item.sex,
+              color: item.color.trim().isEmpty ? null : item.color.trim(),
+              status: 'available',
+              birthWeight: item.birthWeight,
+            ),
+          )
+          .toList();
 
-      // In a real application we would clear existing puppies of the litter or update them
-      // For this mock step, we just replace all puppies of the litter in our mock DB
-      // We can simulate batch creation
-      await _puppyRepository.createPuppiesBatch(puppiesToSave);
+      await _puppyRepository.savePuppiesBatch(litterId, puppiesToSave);
+
+      // Reload the items from the source of truth: new puppies now carry their
+      // ids, so a second save without changes is a no-op (idempotent). The
+      // species is already known — no need to re-read the kennel here.
+      final fresh = await _puppyRepository.getPuppies(litterId);
+      _items = fresh
+          .map(
+            (p) => PuppyBatchItem(
+              id: p.id,
+              name: p.name,
+              sex: p.sex,
+              color: p.color ?? '',
+              birthWeight: p.birthWeight ?? 0.0,
+            ),
+          )
+          .toList();
       return true;
     } catch (_) {
       return false;

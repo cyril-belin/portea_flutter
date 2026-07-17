@@ -22,8 +22,10 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // In a mock environment we load with default values or read existing ones if any
-      context.read<PuppyBatchViewModel>().loadLitterPuppies([]);
+      // Load the real puppies of this litter from the server. The view model
+      // resolves the species label itself; the screen passes nothing but the
+      // route's litterId.
+      context.read<PuppyBatchViewModel>().loadLitterPuppies(widget.litterId);
     });
   }
 
@@ -33,7 +35,7 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saisie des chiots'),
+        title: Text('Saisie des ${viewModel.youngNounPlural}'),
       ),
       body: viewModel.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -45,36 +47,48 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                   child: Column(
                     children: [
                       Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth > 700) {
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(16.0),
-                                gridDelegate:
-                                    const SliverGridDelegateWithMaxCrossAxisExtent(
-                                      maxCrossAxisExtent: 500,
-                                      mainAxisExtent: 160,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
-                                    ),
-                                itemCount: viewModel.items.length,
-                                itemBuilder: (context, index) {
-                                  final item = viewModel.items[index];
-                                  return _buildPuppyRow(index, item, viewModel);
+                        child: viewModel.items.isEmpty
+                            // Empty-but-loaded state: the litter has no puppies
+                            // yet. Offer the add button instead of a blank grid.
+                            ? _buildEmptyState(viewModel)
+                            : LayoutBuilder(
+                                builder: (context, constraints) {
+                                  if (constraints.maxWidth > 700) {
+                                    return GridView.builder(
+                                      padding: const EdgeInsets.all(16.0),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                                            maxCrossAxisExtent: 500,
+                                            mainAxisExtent: 160,
+                                            crossAxisSpacing: 16,
+                                            mainAxisSpacing: 16,
+                                          ),
+                                      itemCount: viewModel.items.length,
+                                      itemBuilder: (context, index) {
+                                        final item = viewModel.items[index];
+                                        return _buildPuppyRow(
+                                          index,
+                                          item,
+                                          viewModel,
+                                        );
+                                      },
+                                    );
+                                  } else {
+                                    return ListView.builder(
+                                      padding: const EdgeInsets.all(16.0),
+                                      itemCount: viewModel.items.length,
+                                      itemBuilder: (context, index) {
+                                        final item = viewModel.items[index];
+                                        return _buildPuppyRow(
+                                          index,
+                                          item,
+                                          viewModel,
+                                        );
+                                      },
+                                    );
+                                  }
                                 },
-                              );
-                            } else {
-                              return ListView.builder(
-                                padding: const EdgeInsets.all(16.0),
-                                itemCount: viewModel.items.length,
-                                itemBuilder: (context, index) {
-                                  final item = viewModel.items[index];
-                                  return _buildPuppyRow(index, item, viewModel);
-                                },
-                              );
-                            }
-                          },
-                        ),
+                              ),
                       ),
                       _buildBottomBar(context, viewModel),
                     ],
@@ -82,6 +96,45 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildEmptyState(PuppyBatchViewModel vm) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.pets_rounded,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Aucun ${vm.youngNoun} déclaré pour cette portée.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+              ),
+              onPressed: vm.addItem,
+              icon: const Icon(Icons.add_rounded, color: AppColors.primary),
+              label: Text(
+                'Ajouter un ${vm.youngNoun}',
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -102,9 +155,9 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                   flex: 3,
                   child: TextFormField(
                     initialValue: item.name,
-                    decoration: const InputDecoration(
-                      labelText: 'Nom du chiot',
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      labelText: 'Nom du ${vm.youngNoun}',
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
                       ),
@@ -159,16 +212,13 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
                     ],
                   ),
                 ),
-                if (vm.items.length > 1) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: AppColors.error,
-                    ),
-                    onPressed: () => vm.removeItem(index),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.error,
                   ),
-                ],
+                  onPressed: () => vm.removeItem(index),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -237,9 +287,9 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
             ),
             onPressed: vm.addItem,
             icon: const Icon(Icons.add_rounded, color: AppColors.primary),
-            label: const Text(
-              'Ajouter un chiot',
-              style: TextStyle(
+            label: Text(
+              'Ajouter un ${vm.youngNoun}',
+              style: const TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
               ),
@@ -251,15 +301,28 @@ class _PuppyBatchCreationScreenState extends State<PuppyBatchCreationScreen> {
               if (_formKey.currentState!.validate()) {
                 final litterDetailVm = context.read<LitterDetailViewModel>();
                 final goRouter = GoRouter.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 final success = await vm.saveBatch(widget.litterId);
-                if (success && mounted) {
+                if (!mounted) return;
+                if (success) {
                   // Reload details of this litter
                   litterDetailVm.loadLitterDetail(widget.litterId);
                   goRouter.go('/litters/${widget.litterId}');
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Échec de l\'enregistrement. Vérifiez votre connexion '
+                        'et réessayez.',
+                      ),
+                    ),
+                  );
                 }
               }
             },
-            child: Text('Enregistrer les ${vm.items.length} chiots'),
+            child: Text(
+              'Enregistrer les ${vm.items.length} ${vm.youngNounPlural}',
+            ),
           ),
         ],
       ),
