@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
 import 'core/auth/authenticated_listenable.dart';
+import 'core/notifications/inotification_service.dart';
 import 'core/notifications/notification_service.dart';
 
 // Import repositories
@@ -76,9 +77,27 @@ void main() async {
   // Core services
   final notificationService = NotificationService();
 
+  // F07: initialize the notification plugin + resolve the device timezone before
+  // runApp, so reminders can be scheduled and a notification that LAUNCHED the
+  // app (killed-app case) can be routed. The tap callback is bound to the
+  // GoRouter once it exists (see NotificationRouter + _MyAppState).
+  await notificationService.initialize(
+    onNotificationTap: NotificationRouter.handle,
+  );
+
+  // Capture a notification that LAUNCHED the app (killed-app case). Routed
+  // after the router is bound — see _MyAppState + NotificationRouter.
+  final launchDetails = await notificationService
+      .getNotificationAppLaunchDetails();
+  if (launchDetails != null && launchDetails.didLaunchApp) {
+    NotificationRouter.queueLaunch(launchDetails.payload);
+  }
+
   // Pre-instantiate OnboardingViewModel because GoRouter needs it for refreshListenable
   final onboardingViewModel = OnboardingViewModel(
     kennelRepository: kennelRepository,
+    careRepository: careRepository,
+    notificationService: notificationService,
     authListenable: authListenable,
   );
 
@@ -94,7 +113,10 @@ void main() async {
         Provider<ICareRepository>.value(value: careRepository),
         Provider<ISettingsRepository>.value(value: settingsRepository),
 
-        // Core services
+        // Core services. INotificationService is what view models depend on
+        // (testable, mockable); NotificationService stays available for the few
+        // widgets that read the concrete type (e.g. onboarding screen).
+        Provider<INotificationService>.value(value: notificationService),
         Provider<NotificationService>.value(value: notificationService),
 
         // View models injection
@@ -254,11 +276,13 @@ void main() async {
         ChangeNotifierProxyProvider<ICareRepository, AddCareViewModel>(
           create: (context) => AddCareViewModel(
             careRepository: context.read<ICareRepository>(),
+            notificationService: context.read<INotificationService>(),
           ),
           update: (context, care, prev) =>
               prev ??
               AddCareViewModel(
                 careRepository: care,
+                notificationService: context.read<INotificationService>(),
               ),
         ),
         ChangeNotifierProxyProvider2<
@@ -299,6 +323,14 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     final onboardingVM = context.read<OnboardingViewModel>();
     _router = createRouter(onboardingVM);
+
+    // Bind the router so notification taps (app-alive) and the launch payload
+    // (app-killed) can deep-link. addPostFrameCallback ensures the router is
+    // mounted in the tree before pushing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationRouter.bind(_router);
+      NotificationRouter.consumePendingLaunch();
+    });
   }
 
   @override
@@ -313,5 +345,43 @@ class _MyAppState extends State<MyApp> {
       themeMode: settingsVM.themeMode,
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+/// Bridge between notification taps and the go_router.
+///
+/// Two paths exist (F07 spec, verdict §6): the tap while the app is alive
+/// ([handle], set as the plugin's `onDidReceiveNotificationResponse` callback)
+/// and the tap that LAUNCHED the killed app ([queueLaunch] captured in main →
+/// [consumePendingLaunch] routed once the router is mounted). Invalid payloads
+/// fall back to the dashboard — never crash.
+class NotificationRouter {
+  NotificationRouter._();
+
+  static GoRouter? _router;
+  static String? _pendingLaunch;
+
+  /// Binds the router so taps can navigate. Called once from _MyAppState after
+  /// the router is created.
+  static void bind(GoRouter router) => _router = router;
+
+  /// Routes a tap payload (app-alive case).
+  static void handle(String payload) {
+    _router?.push(parseNotificationPayload(payload));
+  }
+
+  /// Stores a launch payload captured in main() (app-killed case) for routing
+  /// after the router is bound.
+  static void queueLaunch(String? payload) {
+    _pendingLaunch = (payload == null || payload.isEmpty) ? null : payload;
+  }
+
+  /// Routes the stored launch payload once, then clears it. Called from
+  /// _MyAppState after bind().
+  static void consumePendingLaunch() {
+    final payload = _pendingLaunch;
+    if (payload == null) return;
+    _pendingLaunch = null;
+    _router?.push(parseNotificationPayload(payload));
   }
 }

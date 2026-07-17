@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/errors/operation_state.dart';
+import '../../../../core/notifications/inotification_service.dart';
+import '../../../puppies/domain/repositories/i_care_repository.dart';
 import '../../domain/repositories/i_kennel_repository.dart';
 
 /// Drives the onboarding flow and its routing.
@@ -19,8 +21,12 @@ import '../../domain/repositories/i_kennel_repository.dart';
 class OnboardingViewModel extends ChangeNotifier {
   OnboardingViewModel({
     required IKennelRepository kennelRepository,
+    ICareRepository? careRepository,
+    INotificationService? notificationService,
     ValueListenable<bool>? authListenable,
   }) : _kennelRepository = kennelRepository,
+       _careRepository = careRepository,
+       _notificationService = notificationService,
        _authListenable = authListenable {
     _authListenable?.addListener(_onAuthChanged);
     if (_authListenable?.value ?? false) {
@@ -29,6 +35,8 @@ class OnboardingViewModel extends ChangeNotifier {
   }
 
   final IKennelRepository _kennelRepository;
+  final ICareRepository? _careRepository;
+  final INotificationService? _notificationService;
   final ValueListenable<bool>? _authListenable;
 
   static const _onboardingCompletedKey = 'onboarding_completed';
@@ -111,6 +119,13 @@ class OnboardingViewModel extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _isOnboardingCompleted = prefs.getBool(_onboardingCompletedKey) ?? false;
       _state = OperationState.success;
+      // F07: re-schedule every future reminder after login so they survive a
+      // device reboot. Hooked here (where the kennel resolves), not a new
+      // mechanism. Idempotent. Best-effort: a failure here must not break the
+      // auth flow.
+      if (_hasKennel && _isOnboardingCompleted) {
+        await _rescheduleReminders();
+      }
     } catch (e) {
       _errorMessage = mapExceptionToMessage(e);
       _state = OperationState.error;
@@ -120,6 +135,23 @@ class OnboardingViewModel extends ChangeNotifier {
       // null without throwing, handled above.
     } finally {
       notifyListeners();
+    }
+  }
+
+  /// F07: fetches the next upcoming reminders and asks the notification service
+  /// to re-schedule them. Best-effort and isolated from the auth flow — a
+  /// repository or OS failure here is swallowed (the app still works; reminders
+  /// may just be silent until next restart). Idempotent.
+  Future<void> _rescheduleReminders() async {
+    final careRepo = _careRepository;
+    final service = _notificationService;
+    if (careRepo == null || service == null) return;
+    try {
+      final upcoming = await careRepo.getUpcomingReminders(50);
+      await service.rescheduleAll(upcoming);
+    } catch (_) {
+      // Silently degrade: re-scheduling is an enhancement, not a requirement
+      // for the auth flow to succeed.
     }
   }
 
