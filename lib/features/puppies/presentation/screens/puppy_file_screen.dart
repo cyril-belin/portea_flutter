@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:portea_client/portea_client.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/status_badge_widget.dart';
 import '../view_models/puppy_file_view_model.dart';
+import '../widgets/growth_curve_widget.dart';
 
 class PuppyFileScreen extends StatefulWidget {
   final int id;
@@ -110,7 +112,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
     final isFemale = puppy.sex.toLowerCase() == 'female' || puppy.sex == '♀';
 
     final headerWidget = _buildHeader(puppy, isFemale);
-    final weightCurveWidget = _buildWeightCurveSection();
+    final weightCurveWidget = _buildWeightCurveSection(viewModel.weighings);
     final weightHistoryWidget = _buildWeightHistorySection(viewModel);
     final healthWidget = _buildHealthSection(viewModel);
     final buyerWidget = _buildBuyerSection(puppy, viewModel);
@@ -238,7 +240,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
     );
   }
 
-  Widget _buildWeightCurveSection() {
+  Widget _buildWeightCurveSection(List<WeighingEntry> weighings) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -256,26 +258,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppColors.primaryDark.withValues(alpha: 0.2)
-                    : AppColors.primaryLight.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  'Graphique de croissance',
-                  style: TextStyle(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? AppColors.primaryLight
-                        : AppColors.primaryDark,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
+            GrowthCurveWidget(weighings: weighings),
           ],
         ),
       ),
