@@ -216,7 +216,10 @@ void main() async {
                 puppyRepository: puppyRepo,
               ),
         ),
-        ChangeNotifierProxyProvider<IWeighingRepository, GroupWeighingViewModel>(
+        ChangeNotifierProxyProvider<
+          IWeighingRepository,
+          GroupWeighingViewModel
+        >(
           create: (context) => GroupWeighingViewModel(
             weighingRepository: context.read<IWeighingRepository>(),
           ),

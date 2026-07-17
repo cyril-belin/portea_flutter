@@ -43,9 +43,7 @@ class MockWeighingRepository implements IWeighingRepository {
   ) async {
     await Future.delayed(const Duration(milliseconds: 120));
     // Puppies of the litter, in id order (mirrors the server endpoint).
-    final puppies = _db.puppies
-        .where((p) => p.litterId == litterId)
-        .toList()
+    final puppies = _db.puppies.where((p) => p.litterId == litterId).toList()
       ..sort((a, b) => a.id!.compareTo(b.id!));
     if (puppies.isEmpty) {
       return const [];
