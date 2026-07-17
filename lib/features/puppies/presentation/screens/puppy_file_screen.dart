@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/status_badge_widget.dart';
@@ -80,9 +81,17 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
                 final w = double.tryParse(_weightController.text);
                 if (w != null && w > 0) {
                   final nav = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
                   await vm.addSingleWeight(w);
-                  _weightController.clear();
-                  if (mounted) nav.pop();
+                  if (!mounted) return;
+                  if (vm.errorMessage != null) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text(vm.errorMessage!)),
+                    );
+                  } else {
+                    _weightController.clear();
+                    nav.pop();
+                  }
                 }
               },
               child: const Text('Enregistrer la pesée'),
@@ -97,8 +106,32 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<PuppyFileViewModel>();
 
-    if (viewModel.isLoading) {
+    if (viewModel.state == OperationState.loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (viewModel.state == OperationState.error && viewModel.puppy == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Chiot')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 48),
+                const SizedBox(height: 12),
+                Text(viewModel.errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => viewModel.loadPuppyFile(widget.id),
+                  child: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     final puppy = viewModel.puppy;
@@ -451,14 +484,20 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       await vm.saveBuyerInfo(
                         name: _buyerNameController.text.trim(),
                         phone: _buyerPhoneController.text.trim(),
                         email: _buyerEmailController.text.trim(),
                         address: _buyerAddressController.text.trim(),
                       );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                      if (!mounted) return;
+                      if (vm.errorMessage != null) {
+                        messenger.showSnackBar(
+                          SnackBar(content: Text(vm.errorMessage!)),
+                        );
+                      } else {
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Infos acquéreur enregistrées'),
                           ),

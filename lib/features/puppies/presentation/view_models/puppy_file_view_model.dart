@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../domain/repositories/i_puppy_repository.dart';
 import '../../domain/repositories/i_weighing_repository.dart';
 import '../../domain/repositories/i_care_repository.dart';
@@ -21,23 +23,36 @@ class PuppyFileViewModel extends ChangeNotifier {
        _careRepository = careRepository,
        _settingsRepository = settingsRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   Puppy? _puppy;
   Puppy? get puppy => _puppy;
 
   List<WeighingEntry> _weighings = [];
-  List<WeighingEntry> get weighings => _weighings;
+  // Claim 2.6: never expose the mutable backing list.
+  List<WeighingEntry> get weighings => List.unmodifiable(_weighings);
 
   List<CareEntry> _careTimeline = [];
-  List<CareEntry> get careTimeline => _careTimeline;
+  // Claim 2.6: never expose the mutable backing list.
+  List<CareEntry> get careTimeline => List.unmodifiable(_careTimeline);
 
   bool _isPremium = false;
   bool get isPremium => _isPremium;
 
   Future<void> loadPuppyFile(int id) async {
-    _isLoading = true;
+    // Refresh vs first load: existing file stays visible during a reload.
+    final hasData = _puppy != null;
+    _state = hasData ? OperationState.refreshing : OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -47,19 +62,52 @@ class PuppyFileViewModel extends ChangeNotifier {
         _weighings = await _weighingRepository.getWeighings(id);
         _careTimeline = await _careRepository.getCareEntries(puppyId: id);
       }
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
 
+  /// Snapshot helper for optimistic-mutation rollback. Serverpod model fields
+  /// are mutable, so we clone the values we may touch before the await.
+  Puppy _snapshot() => Puppy(
+    id: _puppy!.id,
+    litterId: _puppy!.litterId,
+    name: _puppy!.name,
+    sex: _puppy!.sex,
+    color: _puppy!.color,
+    status: _puppy!.status,
+    chipNumber: _puppy!.chipNumber,
+    birthWeight: _puppy!.birthWeight,
+    photoUrl: _puppy!.photoUrl,
+    buyerName: _puppy!.buyerName,
+    buyerPhone: _puppy!.buyerPhone,
+    buyerEmail: _puppy!.buyerEmail,
+    buyerAddress: _puppy!.buyerAddress,
+  );
+
   Future<void> updateStatus(String status) async {
     if (_puppy == null) return;
+    if (_state == OperationState.mutating) return;
+    final previous = _snapshot();
     _puppy!.status = status;
-    await _puppyRepository.updatePuppy(_puppy!);
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      await _puppyRepository.updatePuppy(_puppy!);
+      _state = OperationState.success;
+    } catch (e) {
+      _puppy = previous;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
+    }
   }
 
   Future<void> saveBuyerInfo({
@@ -69,23 +117,49 @@ class PuppyFileViewModel extends ChangeNotifier {
     required String address,
   }) async {
     if (_puppy == null) return;
+    if (_state == OperationState.mutating) return;
+    final previous = _snapshot();
     _puppy!.buyerName = name.isEmpty ? null : name;
     _puppy!.buyerPhone = phone.isEmpty ? null : phone;
     _puppy!.buyerEmail = email.isEmpty ? null : email;
     _puppy!.buyerAddress = address.isEmpty ? null : address;
-    await _puppyRepository.updatePuppy(_puppy!);
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      await _puppyRepository.updatePuppy(_puppy!);
+      _state = OperationState.success;
+    } catch (e) {
+      _puppy = previous;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
+    }
   }
 
   Future<void> addSingleWeight(double weightGrams) async {
     if (_puppy == null) return;
-    final entry = WeighingEntry(
-      puppyId: _puppy!.id!,
-      weighedAt: DateTime.now(),
-      weightGrams: weightGrams,
-    );
-    await _weighingRepository.addWeighing(entry);
-    _weighings = await _weighingRepository.getWeighings(_puppy!.id!);
+    if (_state == OperationState.mutating) return;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
+
+    try {
+      final entry = WeighingEntry(
+        puppyId: _puppy!.id!,
+        weighedAt: DateTime.now(),
+        weightGrams: weightGrams,
+      );
+      await _weighingRepository.addWeighing(entry);
+      _weighings = await _weighingRepository.getWeighings(_puppy!.id!);
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
+    }
   }
 }

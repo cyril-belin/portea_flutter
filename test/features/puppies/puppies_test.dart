@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:portea_flutter/core/data/mock_database.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
 import 'package:portea_flutter/features/puppies/data/repositories/mock_weighing_repository.dart';
@@ -567,6 +568,35 @@ void main() {
         await viewModel.addSingleWeight(1950.0);
         expect(viewModel.weighings.length, equals(5));
         expect(viewModel.weighings.last.weightGrams, equals(1950.0));
+      },
+    );
+
+    test('loadPuppyFile failure sets errorMessage and error state', () async {
+      puppyRepo.throwOnNext = Exception('boom');
+
+      await viewModel.loadPuppyFile(1);
+
+      expect(viewModel.state, OperationState.error);
+      expect(viewModel.errorMessage, isNotNull);
+      expect(viewModel.puppy, isNull);
+    });
+
+    test(
+      'updateStatus failure rolls back status and surfaces errorMessage',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        expect(viewModel.puppy!.status, equals('available'));
+
+        puppyRepo.throwOnNext = Exception('boom');
+        await viewModel.updateStatus('reserved');
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(
+          viewModel.puppy!.status,
+          equals('available'),
+          reason: 'optimistic mutation must roll back on failure',
+        );
       },
     );
   });
