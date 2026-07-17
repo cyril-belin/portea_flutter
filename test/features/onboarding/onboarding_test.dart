@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/onboarding/presentation/view_models/onboarding_view_model.dart';
 
@@ -69,12 +70,14 @@ void main() {
       viewModel = OnboardingViewModel(kennelRepository: repository);
     });
 
-    test('initial states', () {
-      expect(viewModel.isLoading, isFalse);
+    test('initial state is idle and not busy', () {
+      expect(viewModel.state, OperationState.idle);
+      expect(viewModel.isBusy, isFalse);
       expect(viewModel.isOnboardingCompleted, isFalse);
       expect(viewModel.kennelName, isEmpty);
       expect(viewModel.species, equals('dog'));
       expect(viewModel.affix, isEmpty);
+      expect(viewModel.errorMessage, isNull);
     });
 
     test('setting properties notifies listeners', () {
@@ -108,7 +111,7 @@ void main() {
       viewModel.kennelName = '';
       final result = await viewModel.createKennel();
       expect(result, isFalse);
-      expect(viewModel.isLoading, isFalse);
+      expect(viewModel.isBusy, isFalse);
     });
 
     test('createKennel succeeds and calls repository', () async {
@@ -118,7 +121,8 @@ void main() {
 
       final result = await viewModel.createKennel();
       expect(result, isTrue);
-      expect(viewModel.isLoading, isFalse);
+      expect(viewModel.isBusy, isFalse);
+      expect(viewModel.state, OperationState.success);
       // Kennel created but onboarding NOT complete until notifications screen.
       expect(viewModel.hasKennel, isTrue);
       expect(viewModel.isOnboardingCompleted, isFalse);
@@ -129,6 +133,20 @@ void main() {
       expect(saved.species, equals('dog'));
       expect(saved.affix, equals('Affix'));
     });
+
+    test(
+      'createKennel repository failure surfaces errorMessage and returns false',
+      () async {
+        viewModel.kennelName = 'My Kennel';
+        repository.throwOnNext = const ServerpodClientException('boom', -1);
+
+        final result = await viewModel.createKennel();
+
+        expect(result, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
   });
 
   group('OnboardingViewModel auth-driven completion', () {
