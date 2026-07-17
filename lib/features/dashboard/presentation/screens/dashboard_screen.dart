@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/empty_state_widget.dart';
@@ -27,9 +28,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final viewModel = context.watch<DashboardViewModel>();
 
-    if (viewModel.isLoading) {
+    if (viewModel.state == OperationState.loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (viewModel.state == OperationState.error && viewModel.kennel == null) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, size: 48),
+                  const SizedBox(height: 12),
+                  Text(
+                    viewModel.errorMessage!,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => viewModel.loadDashboard(),
+                    child: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
     }
 
