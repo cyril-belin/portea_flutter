@@ -293,6 +293,44 @@ void main() {
       expect(list.length, equals(2));
       expect(list.any((c) => c.product == 'Stronghold'), isTrue);
     });
+
+    // THE CENTRAL RULE (review claim 4.3 + F06 spec): group care creates ONE
+    // parent entry carrying the reminderAt, plus ONE child per puppy with
+    // reminderAt FORCED to null. No child ever carries a non-null reminderAt.
+    // The mock pins the same invariant the server enforces, so a regression
+    // in either layer fails here.
+    test(
+      'addGroupCare: parent carries reminderAt, every child has reminderAt '
+      'null',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 15));
+
+        final created = await repository.addGroupCare(
+          litterId: 1,
+          type: 'vaccine',
+          product: 'Nobivac',
+          appliedAt: DateTime.now(),
+          reminderAt: reminder,
+        );
+
+        // Exactly 1 parent + 1 child per puppy of litter 1 (3 puppies seeded).
+        final parents = created.where((e) => e.litterId != null).toList();
+        final children = created.where((e) => e.puppyId != null).toList();
+        expect(parents.length, equals(1));
+        expect(children.length, equals(3));
+
+        // Parent: carries the litterId AND the reminderAt.
+        expect(parents.single.litterId, equals(1));
+        expect(parents.single.puppyId, isNull);
+        expect(parents.single.reminderAt, equals(reminder));
+
+        // Children: each has its own puppyId, NO litterId, NO reminderAt.
+        for (final child in children) {
+          expect(child.litterId, isNull);
+          expect(child.reminderAt, isNull);
+        }
+      },
+    );
   });
 
   group('PuppyBatchViewModel', () {
@@ -662,67 +700,89 @@ void main() {
   });
 
   group('AddCareViewModel', () {
-    late MockPuppyRepository puppyRepo;
     late MockCareRepository careRepo;
     late AddCareViewModel viewModel;
 
     setUp(() {
       resetMockDatabase();
-      puppyRepo = MockPuppyRepository();
       careRepo = MockCareRepository();
-      viewModel = AddCareViewModel(
-        puppyRepository: puppyRepo,
-        careRepository: careRepo,
-      );
+      viewModel = AddCareViewModel(careRepository: careRepo);
     });
 
-    test('saveCareEntry saves care for individual puppy', () async {
-      final result = await viewModel.saveCareEntry(
-        type: 'vaccine',
-        product: 'Rabigen',
-        date: DateTime.now(),
-        puppyId: 1,
-      );
+    test(
+      'individual care: a single addCareEntry call (no group path)',
+      () async {
+        final result = await viewModel.saveCareEntry(
+          type: 'vaccine',
+          product: 'Rabigen',
+          date: DateTime.now(),
+          puppyId: 1,
+        );
 
-      expect(result, isTrue);
+        expect(result, isTrue);
+        expect(viewModel.state, OperationState.success);
 
-      final care = await careRepo.getCareEntries(puppyId: 1);
-      expect(care.length, equals(2));
-      expect(care.any((c) => c.product == 'Rabigen'), isTrue);
-    });
+        // The puppy's own entry carries the product. Individual care lands
+        // directly on the puppy — no parent, no children.
+        final care = await careRepo.getCareEntries(puppyId: 1);
+        expect(care.any((c) => c.product == 'Rabigen'), isTrue);
+      },
+    );
 
-    test('saveCareEntry saves care for all puppies in litter', () async {
-      final result = await viewModel.saveCareEntry(
-        type: 'deworming',
-        product: 'Milbemax',
-        date: DateTime.now(),
-        litterId: 1,
-        targetAllLitter: true,
-      );
+    test(
+      'group care: a single addGroupCare call creates one parent (with '
+      'reminder) and children with reminderAt null — no client-side loop',
+      () async {
+        final reminder = DateTime.now().add(const Duration(days: 15));
 
-      expect(result, isTrue);
+        final result = await viewModel.saveCareEntry(
+          type: 'deworming',
+          product: 'Milbemax',
+          date: DateTime.now(),
+          litterId: 1,
+          targetAllLitter: true,
+          reminderDate: reminder,
+        );
 
-      // Verify litter care entry is created
-      final litterCare = await careRepo.getCareEntries(litterId: 1);
-      expect(
-        litterCare.length,
-        equals(2),
-      ); // Milbemax Chiot (from DB init) + Milbemax
+        expect(result, isTrue);
+        expect(viewModel.state, OperationState.success);
 
-      // Verify puppy care entry is created for Puppy 1, 2, and 3
-      final puppy1Care = await careRepo.getCareEntries(puppyId: 1);
-      final puppy2Care = await careRepo.getCareEntries(puppyId: 2);
-      final puppy3Care = await careRepo.getCareEntries(puppyId: 3);
+        // ONE parent entry carrying the litterId and the reminderAt.
+        final litterCare = await careRepo.getCareEntries(litterId: 1);
+        // 1 seeded (Milbemax Chiot) + 1 new parent.
+        expect(litterCare.length, equals(2));
+        final newParent = litterCare.firstWhere(
+          (c) => c.product == 'Milbemax' && c.reminderAt == reminder,
+        );
+        expect(newParent.litterId, equals(1));
+        expect(newParent.puppyId, isNull);
 
-      expect(puppy1Care.any((c) => c.product == 'Milbemax'), isTrue);
-      expect(puppy2Care.any((c) => c.product == 'Milbemax'), isTrue);
-      expect(puppy3Care.any((c) => c.product == 'Milbemax'), isTrue);
-    });
+        // ONE child per puppy, each WITHOUT a reminderAt — this is the F06
+        // rule (review claim 4.3). The old client-side loop would have copied
+        // reminderAt onto every child; the rewrite routes through a single
+        // addGroupCare and the children never carry one.
+        for (final puppyId in [1, 2, 3]) {
+          final puppyCare = await careRepo.getCareEntries(puppyId: puppyId);
+          final child = puppyCare.firstWhere(
+            (c) => c.product == 'Milbemax' && c.litterId == null,
+          );
+          expect(
+            child.reminderAt,
+            isNull,
+            reason:
+                'a group-care child must NOT carry a reminderAt — this is the '
+                'F06 rule. A regression here would spam N notifications once '
+                'F07 schedules per reminderAt.',
+          );
+        }
+      },
+    );
 
     test(
       'saveCareEntry failure surfaces errorMessage and returns false',
       () async {
-        careRepo.throwOnNext = Exception('boom');
+        // A typed server exception is what the mapper expects in production.
+        careRepo.throwOnNext = InvalidCareInputException();
 
         final result = await viewModel.saveCareEntry(
           type: 'vaccine',
@@ -733,6 +793,7 @@ void main() {
 
         expect(result, isFalse);
         expect(viewModel.state, OperationState.error);
+        // The mapper surfaces the typed exception's French business message.
         expect(viewModel.errorMessage, isNotNull);
       },
     );

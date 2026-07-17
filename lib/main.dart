@@ -22,7 +22,7 @@ import 'features/puppies/data/repositories/serverpod_puppy_repository.dart';
 import 'features/puppies/domain/repositories/i_weighing_repository.dart';
 import 'features/puppies/data/repositories/serverpod_weighing_repository.dart';
 import 'features/puppies/domain/repositories/i_care_repository.dart';
-import 'features/puppies/data/repositories/mock_care_repository.dart';
+import 'features/puppies/data/repositories/serverpod_care_repository.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
 import 'features/settings/data/repositories/mock_settings_repository.dart';
 
@@ -70,7 +70,7 @@ void main() async {
   final litterRepository = ServerpodLitterRepository(client);
   final puppyRepository = ServerpodPuppyRepository(client);
   final weighingRepository = ServerpodWeighingRepository(client);
-  final careRepository = MockCareRepository();
+  final careRepository = ServerpodCareRepository(client);
   final settingsRepository = MockSettingsRepository();
 
   // Core services
@@ -251,19 +251,13 @@ void main() async {
                 settingsRepository: settings,
               ),
         ),
-        ChangeNotifierProxyProvider2<
-          IPuppyRepository,
-          ICareRepository,
-          AddCareViewModel
-        >(
+        ChangeNotifierProxyProvider<ICareRepository, AddCareViewModel>(
           create: (context) => AddCareViewModel(
-            puppyRepository: context.read<IPuppyRepository>(),
             careRepository: context.read<ICareRepository>(),
           ),
-          update: (context, puppy, care, prev) =>
+          update: (context, care, prev) =>
               prev ??
               AddCareViewModel(
-                puppyRepository: puppy,
                 careRepository: care,
               ),
         ),
