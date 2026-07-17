@@ -456,6 +456,51 @@ void main() {
       expect(viewModel.youngNoun, equals('chaton'));
       expect(viewModel.youngNounPlural, equals('chatons'));
     });
+
+    test(
+      'F05 smoke test: refused deletion reappears immediately and surfaces '
+      'the server message',
+      () async {
+        // Litter 1 is seeded with 3 puppies; puppy 1 has a weighing history.
+        await viewModel.loadLitterPuppies(1);
+        expect(viewModel.items.length, equals(3));
+        final removedId = viewModel.items.first.id;
+        final removedName = viewModel.items.first.name;
+
+        // The user removes puppy 1 from the form, then saves.
+        viewModel.removeItem(0);
+        expect(viewModel.items.length, equals(2));
+        expect(viewModel.items.any((i) => i.id == removedId), isFalse);
+
+        // The server refuses the batch save (e.g. puppy has a weighing history
+        // and cannot be deleted — PuppyDeletionNotAllowedException).
+        puppyRepo.throwOnNext = PuppyDeletionNotAllowedException();
+        final result = await viewModel.saveBatch(1);
+
+        expect(result, isFalse, reason: 'save must report failure');
+        expect(viewModel.state, OperationState.error);
+        expect(
+          viewModel.errorMessage,
+          contains('historique'),
+          reason: 'business message from the typed exception',
+        );
+
+        // F05 fix: the refused-deletion puppy reappears in the list right away,
+        // rather than staying gone until a manual reload.
+        expect(
+          viewModel.items.length,
+          equals(3),
+          reason: 'refused removal must be reverted from the source of truth',
+        );
+        expect(
+          viewModel.items.any(
+            (i) => i.id == removedId && i.name == removedName,
+          ),
+          isTrue,
+          reason: 'the exact removed row must come back',
+        );
+      },
+    );
   });
 
   group('GroupWeighingViewModel', () {

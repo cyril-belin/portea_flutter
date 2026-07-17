@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../../onboarding/domain/repositories/i_kennel_repository.dart';
 import '../../domain/repositories/i_puppy_repository.dart';
 
@@ -43,8 +45,16 @@ class PuppyBatchViewModel extends ChangeNotifier {
   final IKennelRepository _kennelRepository;
   final IPuppyRepository _puppyRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   /// Species of the kennel, resolved on load. Defaults to 'dog' until
   /// [loadLitterPuppies] completes. Drives [_youngLabel].
@@ -52,7 +62,8 @@ class PuppyBatchViewModel extends ChangeNotifier {
   String get species => _species;
 
   List<PuppyBatchItem> _items = [];
-  List<PuppyBatchItem> get items => _items;
+  // Claim 2.6: never expose the mutable backing list.
+  List<PuppyBatchItem> get items => List.unmodifiable(_items);
 
   /// Whether a load or save is running or has populated [items]. Used by the
   /// screen to distinguish the empty-but-loaded state (show the add button)
@@ -77,7 +88,10 @@ class PuppyBatchViewModel extends ChangeNotifier {
   /// species label from the kennel first. A litter with no puppies yields an
   /// empty form (the screen offers an "add" button) — no mock pre-fill.
   Future<void> loadLitterPuppies(int litterId) async {
-    _isLoading = true;
+    // Refresh vs first load: existing items stay visible during a reload.
+    final hasData = _items.isNotEmpty;
+    _state = hasData ? OperationState.refreshing : OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -96,8 +110,11 @@ class PuppyBatchViewModel extends ChangeNotifier {
             ),
           )
           .toList();
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
@@ -132,9 +149,19 @@ class PuppyBatchViewModel extends ChangeNotifier {
   /// Saves the whole batch idempotently, then reloads from the repository so
   /// newly inserted puppies pick up their server-assigned ids.
   ///
-  /// Returns true on success, false on failure (the caller surfaces a SnackBar).
+  /// On failure the items are **reloaded from the source of truth** rather
+  /// than left in their locally-edited state. This is the F05 smoke-test fix:
+  /// removing a puppy row that the server refuses to delete (e.g. it has a
+  /// weighing/care history → [PuppyDeletionNotAllowedException]) must not
+  /// leave the row gone from the screen until a manual reload — the row
+  /// reappears immediately, the surfaced message explains why.
+  ///
+  /// Returns true on success, false on failure (the caller surfaces a SnackBar
+  /// with [errorMessage]).
   Future<bool> saveBatch(int litterId) async {
-    _isLoading = true;
+    if (_state == OperationState.mutating) return false;
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -171,12 +198,33 @@ class PuppyBatchViewModel extends ChangeNotifier {
             ),
           )
           .toList();
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      _isLoading = false;
+      _state = OperationState.success;
       notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      // F05 fix: reload from the source of truth so any row removed in the UI
+      // (via removeItem) but refused by the server reappears. Best-effort —
+      // if the reload itself fails we keep the current error state/message.
+      try {
+        final current = await _puppyRepository.getPuppies(litterId);
+        _items = current
+            .map(
+              (p) => PuppyBatchItem(
+                id: p.id,
+                name: p.name,
+                sex: p.sex,
+                color: p.color ?? '',
+                birthWeight: p.birthWeight ?? 0.0,
+              ),
+            )
+            .toList();
+      } catch (_) {
+        // Keep the original error message; the local list stays as-is.
+      }
+      notifyListeners();
+      return false;
     }
   }
 }
