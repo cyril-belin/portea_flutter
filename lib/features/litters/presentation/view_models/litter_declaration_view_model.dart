@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:portea_client/portea_client.dart';
+import '../../../../core/errors/error_mapper.dart';
+import '../../../../core/errors/operation_state.dart';
 import '../../domain/repositories/i_litter_repository.dart';
 import '../../../breeders/domain/repositories/i_breeder_repository.dart';
 
@@ -37,17 +39,28 @@ class LitterDeclarationViewModel extends ChangeNotifier {
   final ILitterRepository _litterRepository;
   final IBreederRepository _breederRepository;
 
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  OperationState _state = OperationState.idle;
+  OperationState get state => _state;
+
+  bool get isBusy =>
+      _state == OperationState.loading ||
+      _state == OperationState.refreshing ||
+      _state == OperationState.mutating;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
 
   List<Breeder> _mothers = [];
-  List<Breeder> get mothers => _mothers;
+  // Claim 2.6: never expose the mutable backing list.
+  List<Breeder> get mothers => List.unmodifiable(_mothers);
 
   List<Breeder> _fathers = [];
-  List<Breeder> get fathers => _fathers;
+  // Claim 2.6: never expose the mutable backing list.
+  List<Breeder> get fathers => List.unmodifiable(_fathers);
 
   Future<void> loadBreedersForDeclaration() async {
-    _isLoading = true;
+    _state = OperationState.loading;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -58,10 +71,11 @@ class LitterDeclarationViewModel extends ChangeNotifier {
       _fathers = all
           .where((b) => b.sex == 'male' && b.status == 'active')
           .toList();
-    } catch (_) {
-      // Ignore
+      _state = OperationState.success;
+    } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }
@@ -75,6 +89,9 @@ class LitterDeclarationViewModel extends ChangeNotifier {
   /// [ActiveLitterLimitException], surfaced here as
   /// [LitterDeclarationOutcome.activeLimitReached] so the screen can open the
   /// paywall rather than showing a generic error.
+  ///
+  /// [ActiveLitterLimitException] is deliberately caught *before* the generic
+  /// branch so the mapper never turns the paywall into a SnackBar.
   Future<LitterDeclarationResult> declareLitter({
     required int motherId,
     int? fatherId,
@@ -82,7 +99,14 @@ class LitterDeclarationViewModel extends ChangeNotifier {
     String? externalSireId,
     required DateTime birthDate,
   }) async {
-    _isLoading = true;
+    if (_state == OperationState.mutating) {
+      return LitterDeclarationResult(
+        outcome: LitterDeclarationOutcome.error,
+        errorMessage: 'Une déclaration est déjà en cours.',
+      );
+    }
+    _state = OperationState.mutating;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -102,22 +126,26 @@ class LitterDeclarationViewModel extends ChangeNotifier {
       );
 
       final created = await _litterRepository.createLitter(newLitter);
+      _state = OperationState.success;
       return LitterDeclarationResult(
         outcome: LitterDeclarationOutcome.success,
         litter: created,
       );
     } on ActiveLitterLimitException catch (e) {
+      // Paywall signal — NOT a generic error. Preserved verbatim.
+      _state = OperationState.idle;
       return LitterDeclarationResult(
         outcome: LitterDeclarationOutcome.activeLimitReached,
         errorMessage: e.message,
       );
     } catch (e) {
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.idle;
       return LitterDeclarationResult(
         outcome: LitterDeclarationOutcome.error,
-        errorMessage: 'Impossible de déclarer la portée. Veuillez réessayer.',
+        errorMessage: _errorMessage,
       );
     } finally {
-      _isLoading = false;
       notifyListeners();
     }
   }

@@ -262,5 +262,61 @@ void main() {
         expect(oldLitter!.isActive, isTrue);
       },
     );
+
+    test(
+      'loadBreedersForDeclaration failure sets errorMessage and error state',
+      () async {
+        breederRepo.throwOnNext = Exception('boom');
+
+        await viewModel.loadBreedersForDeclaration();
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(viewModel.mothers, isEmpty);
+        expect(viewModel.fathers, isEmpty);
+      },
+    );
+
+    test(
+      'declareLitter generic failure surfaces the mapper message (not paywall)',
+      () async {
+        litterRepo.throwOnNext = const ServerpodClientException('boom', -1);
+
+        final result = await viewModel.declareLitter(
+          motherId: 1,
+          fatherId: 2,
+          birthDate: DateTime.now(),
+        );
+
+        expect(result.outcome, LitterDeclarationOutcome.error);
+        expect(
+          result.errorMessage,
+          equals('Vérifiez votre connexion internet.'),
+        );
+      },
+    );
+
+    test(
+      'declareLitter on ActiveLitterLimitException stays a paywall signal',
+      () async {
+        // The mock would normally just insert; force the typed exception.
+        litterRepo.throwOnNext = ActiveLitterLimitException();
+
+        final result = await viewModel.declareLitter(
+          motherId: 1,
+          fatherId: 2,
+          birthDate: DateTime.now(),
+        );
+
+        // Paywall preserved — NOT turned into a generic error SnackBar.
+        expect(result.outcome, LitterDeclarationOutcome.activeLimitReached);
+        expect(result.errorMessage, isNotNull);
+        expect(
+          result.errorMessage,
+          contains('Premium'),
+          reason: 'paywall message must be the server-authored one',
+        );
+      },
+    );
   });
 }
