@@ -299,6 +299,14 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                   : null;
                               final router = GoRouter.of(context);
                               final messenger = ScaffoldMessenger.of(context);
+                              // F07 rule 7: the reminder target name (puppy for
+                              // individual care, mother for group care) is
+                              // resolved from already-loaded screen data — no
+                              // lookup at schedule time.
+                              final isGroupCare = _targetAllLitter;
+                              final targetName = isGroupCare
+                                  ? litterDetailVm.mother?.name
+                                  : puppyFileVm?.puppy?.name;
                               final success = await viewModel.saveCareEntry(
                                 type: _type,
                                 product: _productController.text.trim(),
@@ -307,6 +315,7 @@ class _AddCareScreenState extends State<AddCareScreen> {
                                 litterId: widget.litterId,
                                 targetAllLitter: _targetAllLitter,
                                 reminderDate: reminderDate,
+                                targetName: targetName,
                                 notes: _notesController.text.trim().isEmpty
                                     ? null
                                     : _notesController.text.trim(),

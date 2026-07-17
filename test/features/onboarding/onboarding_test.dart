@@ -3,8 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portea_client/portea_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:portea_flutter/core/errors/operation_state.dart';
+import 'package:portea_flutter/features/breeders/data/repositories/mock_breeder_repository.dart';
+import 'package:portea_flutter/features/litters/data/repositories/mock_litter_repository.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
 import 'package:portea_flutter/features/onboarding/presentation/view_models/onboarding_view_model.dart';
+import 'package:portea_flutter/features/puppies/data/repositories/mock_care_repository.dart';
+import 'package:portea_flutter/features/puppies/data/repositories/mock_puppy_repository.dart';
+
+import '../../helpers/mock_notification_service.dart';
+import '../../helpers/test_helpers.dart';
 
 void main() {
   setUpAll(() {
@@ -288,6 +295,73 @@ void main() {
         await settle();
 
         expect(vm.isOnboardingCompleted, isTrue);
+      },
+    );
+
+    // ---- F07: re-schedule at startup with resolved target names ----
+
+    test(
+      'F07: on a cold start, re-schedules upcoming reminders with the '
+      'resolved target name in the title (individual puppy + group litter)',
+      () async {
+        // Seed: litter 1 (mother Salsa id 1), puppies (id 1 "Chiot 1 (Orphée)"
+        // etc.), and a group care entry (id 1, litterId=1, reminderAt future).
+        resetMockDatabase();
+        SharedPreferences.setMockInitialValues({'onboarding_completed': true});
+
+        final kennelRepo = MockKennelRepository();
+        await kennelRepo.createKennel(
+          Kennel(name: 'Existing', species: 'dog', createdAt: DateTime.now()),
+        );
+
+        final careRepo = MockCareRepository();
+        // Add an INDIVIDUAL future reminder (puppy 1) on top of the seeded
+        // group reminder (litter 1). Both should be re-scheduled.
+        await careRepo.addCareEntry(
+          CareEntry(
+            type: 'vaccine',
+            product: 'Rabigen',
+            appliedAt: DateTime.now(),
+            puppyId: 1,
+            reminderAt: DateTime.now().add(const Duration(days: 9)),
+          ),
+        );
+
+        final notifications = MockNotificationService();
+        final vm = OnboardingViewModel(
+          kennelRepository: kennelRepo,
+          careRepository: careRepo,
+          puppyRepository: MockPuppyRepository(),
+          litterRepository: MockLitterRepository(),
+          breederRepository: MockBreederRepository(),
+          notificationService: notifications,
+          authListenable: authListenable(initial: true),
+        );
+
+        // Re-scheduling chains several async lookups (care + per-entry
+        // puppy/litter/breeder), each with the mock's 100ms delay, so settle
+        // longer than the default.
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        // Sanity: the auth+kennel+completed chain resolved, which is what gates
+        // the re-scheduling. Without it, nothing would have been scheduled.
+        expect(vm.isOnboardingCompleted, isTrue);
+        expect(notifications.scheduled, isNotEmpty);
+
+        // Both upcoming reminders are re-scheduled. The seeded group reminder
+        // (litter 1, mother "Salsa") → "Portée de Salsa". The individual
+        // reminder (puppy 1 "Chiot 1 (Orphée)") → its puppy name.
+        final titles = notifications.scheduled.map((s) => s.title).toSet();
+        expect(titles, contains('Rappel soin — Portée de Salsa'));
+        expect(
+          titles,
+          contains('Rappel soin — Chiot 1 (Orphée)'),
+        );
+        // Payloads route correctly: group → /litters/1, individual → /puppies/1
+        final payloads = notifications.scheduled.map((s) => s.payload).toSet();
+        expect(payloads, containsAll(['/litters/1', '/puppies/1']));
+        // Rule 4: re-scheduling never cancels.
+        expect(notifications.cancelled, isEmpty);
       },
     );
   });

@@ -18,6 +18,8 @@ généré vivent dans des dépôts séparés (voir *Monorepo* ci-dessous).
   injection de dépendances et état via **Provider**.
 - **go_router** pour le routage déclaratif (redirection d'onboarding,
   navigation par onglets via `ShellRoute`).
+- **flutter_local_notifications** + **flutter_timezone** : rappels de soins
+  via notifications locales OS (iOS + Android), replanifiés à chaque démarrage.
 - **Serverpod 4.0.0-beta** : backend en Dart, PostgreSQL,
   authentification intégrée (email), WebSocket typés.
 - **RevenueCat** : prévu pour la gestion d'abonnement (non intégré à ce
@@ -49,7 +51,7 @@ UI puis branchement au backend Serverpod.
 | F04 — Chiots                        | Backend Serverpod   |
 | F05 — Pesées                        | Backend Serverpod   |
 | F06 — Soins                         | Backend Serverpod   |
-| F07 — Rappels (notifications)       | UI faite, mock      |
+| F07 — Rappels (notifications)       | Développé           |
 | F08 — Statut chiot                  | UI faite, mock      |
 | F09 — Documents                     | UI faite, mock      |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
@@ -64,6 +66,16 @@ données ne sont pas persistées.
 > crée désormais **une seule entrée parent** portant le rappel, et une entrée
 > par chiot avec rappel forcé à `null` — pour éviter de planifier N
 > notifications identiques quand F07 gérera les rappels.
+
+> F07 (rappels) repose sur des **notifications locales OS** (`flutter_local_notifications`
+> + `flutter_timezone`) : aucune infrastructure push. La date de rappel est
+> persistée côté serveur via `CareEntry.reminderAt` (F06) ; la planification OS
+> se fait côté Flutter après chaque enregistrement de soin, et toutes les
+> notifications futures sont **replanifiées au démarrage** après login (survie au
+> reboot device). Le `NotificationService` est injecté via `Provider` et ne fait
+> aucun accès base de données : la résolution du nom de la cible (titre de la
+> notification) se fait dans le contexte appelant. Deep-link au tap :
+> `/puppies/<id>` (soin individuel) ou `/litters/<id>` (soin de portée).
 
 ---
 
