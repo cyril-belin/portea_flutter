@@ -5,14 +5,28 @@ import '../../domain/repositories/i_breeder_repository.dart';
 class MockBreederRepository implements IBreederRepository {
   final _db = MockDatabase.instance;
 
+  /// When non-null, the next repository call throws this. Consumed on first
+  /// call, then reset to null.
+  Object? throwOnNext;
+
+  Future<void> _maybeThrow() async {
+    final pending = throwOnNext;
+    if (pending != null) {
+      throwOnNext = null;
+      throw pending;
+    }
+  }
+
   @override
   Future<List<Breeder>> getBreeders() async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 150));
     return List.unmodifiable(_db.breeders);
   }
 
   @override
   Future<Breeder?> getBreeder(int id) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 100));
     try {
       return _db.breeders.firstWhere((b) => b.id == id);
@@ -23,6 +37,7 @@ class MockBreederRepository implements IBreederRepository {
 
   @override
   Future<Breeder> createBreeder(Breeder breeder) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 200));
     final newId = _db.breeders.isEmpty
         ? 1
@@ -46,6 +61,7 @@ class MockBreederRepository implements IBreederRepository {
 
   @override
   Future<void> updateBreeder(Breeder breeder) async {
+    await _maybeThrow();
     await Future.delayed(const Duration(milliseconds: 200));
     final idx = _db.breeders.indexWhere((b) => b.id == breeder.id);
     if (idx != -1) {
