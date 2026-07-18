@@ -24,7 +24,9 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
   final _buyerEmailController = TextEditingController();
   final _buyerAddressController = TextEditingController();
   final _weightController = TextEditingController();
+  final _chipController = TextEditingController();
   final _buyerFormKey = GlobalKey<FormState>();
+  final _chipFormKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
       await vm.loadPuppyFile(widget.id);
       if (vm.puppy != null) {
         _syncBuyerControllers(vm.puppy!);
+        _chipController.text = vm.puppy!.chipNumber ?? '';
       }
     });
   }
@@ -57,6 +60,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
     _buyerEmailController.dispose();
     _buyerAddressController.dispose();
     _weightController.dispose();
+    _chipController.dispose();
     super.dispose();
   }
 
@@ -155,6 +159,7 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
     final isFemale = puppy.sex.toLowerCase() == 'female' || puppy.sex == '♀';
 
     final headerWidget = _buildHeader(puppy, isFemale);
+    final chipWidget = _buildChipSection(viewModel);
     final weightCurveWidget = _buildWeightCurveSection(viewModel.weighings);
     final weightHistoryWidget = _buildWeightHistorySection(viewModel);
     final healthWidget = _buildHealthSection(viewModel);
@@ -195,6 +200,8 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
                           children: [
                             headerWidget,
                             const SizedBox(height: 24),
+                            chipWidget,
+                            const SizedBox(height: 24),
                             weightCurveWidget,
                             const SizedBox(height: 24),
                             weightHistoryWidget,
@@ -222,6 +229,8 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       headerWidget,
+                      const SizedBox(height: 24),
+                      chipWidget,
                       const SizedBox(height: 24),
                       weightCurveWidget,
                       const SizedBox(height: 24),
@@ -280,6 +289,65 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Identification section: the puppy's chip number (I-CAD), implanted weeks
+  /// after birth. Editable here because the chip is set long after the litter
+  /// batch was created. Saved through the litter's identity write surface
+  /// (savePuppiesBatch), NOT through updatePuppyStatus — the chip is an identity
+  /// field, and `updatePuppyStatus` owns status + buyer* + cessionDate only
+  /// (the F08 split).
+  Widget _buildChipSection(PuppyFileViewModel vm) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _chipFormKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Identification', style: AppTextStyles.sectionTitle),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _chipController,
+                decoration: const InputDecoration(
+                  labelText: 'N° de puce (I-CAD)',
+                  hintText: '15 chiffres',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: vm.isBusy
+                    ? null
+                    : () async {
+                        if (!(_chipFormKey.currentState?.validate() ?? false)) {
+                          return;
+                        }
+                        final messenger = ScaffoldMessenger.of(context);
+                        await vm.saveChipNumber(_chipController.text);
+                        if (!mounted) return;
+                        if (vm.errorMessage != null) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text(vm.errorMessage!)),
+                          );
+                        } else {
+                          // Reflect the normalized value (empty → null) back.
+                          _chipController.text = vm.puppy?.chipNumber ?? '';
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Numéro de puce enregistré'),
+                            ),
+                          );
+                        }
+                      },
+                child: const Text('Enregistrer'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
