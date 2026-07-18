@@ -84,6 +84,23 @@ void main() {
       );
     });
 
+    test('IncompleteCessionDataException surfaces its server message', () {
+      // F09 — the attestation upload refuses a non-cession-ready puppy. The
+      // message enumerates the missing pieces; the user must see them verbatim.
+      expect(
+        mapExceptionToMessage(IncompleteCessionDataException()),
+        contains('cession'),
+      );
+      expect(
+        mapExceptionToMessage(
+          IncompleteCessionDataException(
+            message: 'Il manque : le nom de l\'acquéreur.',
+          ),
+        ),
+        equals('Il manque : le nom de l\'acquéreur.'),
+      );
+    });
+
     test('a custom message provided at throw time is honored', () {
       expect(
         mapExceptionToMessage(

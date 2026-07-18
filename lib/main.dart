@@ -26,6 +26,8 @@ import 'features/puppies/domain/repositories/i_care_repository.dart';
 import 'features/puppies/data/repositories/serverpod_care_repository.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
 import 'features/settings/data/repositories/mock_settings_repository.dart';
+import 'features/settings/domain/repositories/i_document_repository.dart';
+import 'features/settings/data/repositories/serverpod_document_repository.dart';
 
 // Import view models
 import 'features/onboarding/presentation/view_models/onboarding_view_model.dart';
@@ -40,6 +42,7 @@ import 'features/puppies/presentation/view_models/group_weighing_view_model.dart
 import 'features/puppies/presentation/view_models/puppy_file_view_model.dart';
 import 'features/puppies/presentation/view_models/add_care_view_model.dart';
 import 'features/settings/presentation/view_models/settings_view_model.dart';
+import 'features/settings/presentation/view_models/documents_view_model.dart';
 
 /// Sets up a global client object that can be used to talk to the server from
 /// anywhere in our app. The client is generated from your server code
@@ -73,6 +76,7 @@ void main() async {
   final weighingRepository = ServerpodWeighingRepository(client);
   final careRepository = ServerpodCareRepository(client);
   final settingsRepository = MockSettingsRepository();
+  final documentRepository = ServerpodDocumentRepository(client);
 
   // Core services
   final notificationService = NotificationService();
@@ -115,6 +119,7 @@ void main() async {
         Provider<IWeighingRepository>.value(value: weighingRepository),
         Provider<ICareRepository>.value(value: careRepository),
         Provider<ISettingsRepository>.value(value: settingsRepository),
+        Provider<IDocumentRepository>.value(value: documentRepository),
 
         // Core services. INotificationService is what view models depend on
         // (testable, mockable); NotificationService stays available for the few
@@ -304,6 +309,44 @@ void main() async {
                       settingsRepository: settings,
                     )
                 ..loadSettings(),
+        ),
+        ChangeNotifierProxyProvider6<
+          IKennelRepository,
+          ILitterRepository,
+          IPuppyRepository,
+          IBreederRepository,
+          IDocumentRepository,
+          ISettingsRepository,
+          DocumentsViewModel
+        >(
+          create: (context) => DocumentsViewModel(
+            kennelRepository: context.read<IKennelRepository>(),
+            litterRepository: context.read<ILitterRepository>(),
+            puppyRepository: context.read<IPuppyRepository>(),
+            breederRepository: context.read<IBreederRepository>(),
+            documentRepository: context.read<IDocumentRepository>(),
+            settingsRepository: context.read<ISettingsRepository>(),
+          ),
+          update:
+              (
+                context,
+                kennel,
+                litter,
+                puppy,
+                breeder,
+                document,
+                settings,
+                prev,
+              ) =>
+                  prev ??
+                  DocumentsViewModel(
+                    kennelRepository: kennel,
+                    litterRepository: litter,
+                    puppyRepository: puppy,
+                    breederRepository: breeder,
+                    documentRepository: document,
+                    settingsRepository: settings,
+                  ),
         ),
       ],
       child: const MyApp(),

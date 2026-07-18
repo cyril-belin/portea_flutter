@@ -41,6 +41,8 @@ dependencies:
   flutter_timezone: ^5.1.0
   timezone: ^0.11.0
   fl_chart: ^1.2.0
+  pdf: ^3.13.0
+  printing: ^5.15.0
 
 dev_dependencies:
   # Used for agents to drive the app through the Dart MCP
@@ -76,6 +78,7 @@ flutter:
   # https://flutter.dev/assets-and-images/#from-packages
   assets:
     - assets/config.json
+    - assets/fonts/
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
