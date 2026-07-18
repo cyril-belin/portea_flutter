@@ -37,6 +37,7 @@ String mapExceptionToMessage(Object error) {
   if (error is InvalidWeighingInputException) return error.message;
   if (error is InvalidCareRelationException) return error.message;
   if (error is InvalidCareInputException) return error.message;
+  if (error is InvalidPuppyInputException) return error.message;
   // NOTE: ActiveLitterLimitException deliberately NOT handled here.
 
   // --- Transport / HTTP layer ------------------------------------------------

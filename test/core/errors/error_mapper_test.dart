@@ -69,6 +69,21 @@ void main() {
       );
     });
 
+    test('InvalidPuppyInputException surfaces its server message', () {
+      // F08 — status enum / buyer validation (sold without name, bad email,
+      // bad phone). The user must see the business reason.
+      expect(
+        mapExceptionToMessage(InvalidPuppyInputException()),
+        contains('chiot'),
+      );
+      expect(
+        mapExceptionToMessage(
+          InvalidPuppyInputException(message: 'acquéreur manquant'),
+        ),
+        equals('acquéreur manquant'),
+      );
+    });
+
     test('a custom message provided at throw time is honored', () {
       expect(
         mapExceptionToMessage(

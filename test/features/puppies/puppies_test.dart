@@ -643,20 +643,110 @@ void main() {
 
     test('saveBuyerInfo updates buyer details', () async {
       await viewModel.loadPuppyFile(1);
+      // The buyer form only shows for reserved/sold (rule 3); the dossier is
+      // edited in one of those states. Flip to reserved first to mirror real
+      // usage — on `available` the buyer fields are conserved, not written.
+      await viewModel.updateStatus('reserved');
 
       await viewModel.saveBuyerInfo(
         name: 'Alice',
-        phone: '123456',
+        phone: '06 12 34 56 78',
         email: 'alice@email.com',
         address: 'Lyon',
       );
 
       final updated = await puppyRepo.getPuppy(1);
       expect(updated!.buyerName, equals('Alice'));
-      expect(updated.buyerPhone, equals('123456'));
+      expect(updated.buyerPhone, equals('06 12 34 56 78'));
       expect(updated.buyerEmail, equals('alice@email.com'));
       expect(updated.buyerAddress, equals('Lyon'));
     });
+
+    // ---- F08 ----
+
+    test(
+      'F08: updateStatus to available preserves buyer* and cessionDate '
+      '(conservation rule)',
+      () async {
+        await viewModel.loadPuppyFile(1);
+
+        // Establish a buyer dossier on a reserved puppy, then sell it.
+        await viewModel.updateStatus('reserved');
+        await viewModel.saveBuyerInfo(
+          name: 'Marie Dupont',
+          phone: '06 12 34 56 78',
+          email: 'marie@example.com',
+          address: 'Paris',
+        );
+        await viewModel.updateStatus('sold');
+
+        final before = viewModel.puppy!;
+        expect(before.status, equals('sold'));
+        expect(before.buyerName, equals('Marie Dupont'));
+        expect(before.cessionDate, isNotNull);
+
+        // Fall back to available — the sale is cancelled.
+        await viewModel.updateStatus('available');
+        final after = viewModel.puppy!;
+        expect(after.status, equals('available'));
+        // Every buyer field and cessionDate MUST be intact.
+        expect(after.buyerName, equals('Marie Dupont'));
+        expect(after.buyerPhone, equals('06 12 34 56 78'));
+        expect(after.buyerEmail, equals('marie@example.com'));
+        expect(after.buyerAddress, equals('Paris'));
+        expect(after.cessionDate, isNotNull);
+      },
+    );
+
+    test(
+      'F08: sold without buyerName is refused and surfaces a French message',
+      () async {
+        await viewModel.loadPuppyFile(1); // puppy 1: available, no buyer
+        expect(viewModel.puppy!.status, equals('available'));
+
+        await viewModel.updateStatus('sold'); // no buyerName → refused
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        // Status rolled back to available.
+        expect(viewModel.puppy!.status, equals('available'));
+      },
+    );
+
+    test(
+      'F08: invalid email is refused (mock mirrors the server rules)',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        await viewModel.updateStatus('reserved');
+
+        await viewModel.saveBuyerInfo(
+          name: 'Alice',
+          phone: '06 12 34 56 78',
+          email: 'pas-un-email',
+          address: 'Lyon',
+        );
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        // The buyer name was not persisted.
+        final updated = await puppyRepo.getPuppy(1);
+        expect(updated!.buyerName, isNull);
+      },
+    );
+
+    test(
+      'F08: double-submit guard ignores a mutation while one is in flight',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        // Two concurrent status flips: only the first proceeds.
+        final f1 = viewModel.updateStatus('reserved');
+        final f2 = viewModel.updateStatus('sold');
+        await Future.wait([f1, f2]);
+
+        // No error, ended in the first-call state.
+        expect(viewModel.errorMessage, isNull);
+        expect(viewModel.puppy!.status, equals('reserved'));
+      },
+    );
 
     test(
       'addSingleWeight appends weight entry and reloads weighings',
