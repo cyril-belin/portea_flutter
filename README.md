@@ -53,14 +53,17 @@ UI puis branchement au backend Serverpod.
 | F06 — Soins                         | Backend Serverpod   |
 | F07 — Rappels (notifications)       | Développé           |
 | F08 — Statut chiot                  | Développé           |
-| F09 — Documents                     | UI faite, mock      |
+| F09 — Documents                     | Prérequis développé |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
 
 Les fonctionnalités branchées au backend Serverpod (F01–F08) persistent les
 données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
-utilisateur, anti-forging du `kennelId`). Les fonctionnalités « UI faite, mock »
-s'appuient sur un `MockDatabase` en mémoire : l'interface est navigable, les
-données ne sont pas persistées.
+utilisateur, anti-forging du `kennelId`). La ligne F09 « Prérequis développé »
+désigne les **données** exigées par l'attestation de cession (infos éleveur +
+numéro de puce du chiot) : elles sont saisissables et persistées en base, mais
+la **génération** du document reste à faire (mock). Les fonctionnalités
+« UI faite, mock » s'appuient sur un `MockDatabase` en mémoire : l'interface est
+navigable, les données ne sont pas persistées.
 
 > F06 (soins) a corrigé un bug de l'audit externe (claim 4.3) : le soin groupé
 > crée désormais **une seule entrée parent** portant le rappel, et une entrée
@@ -88,6 +91,25 @@ données ne sont pas persistées.
 > surface d'écriture du statut et de l'acquéreur ; `savePuppiesBatch` ne touche
 > plus qu'à l'identité du chiot. Validations UI (e-mail / téléphone) en amont,
 > le serveur reste l'autorité.
+
+> F09 prérequis (données d'attestation) rend saisissables et persistées les deux
+> catégories de données que la génération de l'attestation de cession exigera :
+> - **Informations éleveur** (nouvelle section « Informations éleveur » des
+>   réglages) : nom, adresse, téléphone, e-mail, SIRET. Sauvegardées via le
+>   nouvel endpoint dédié `updateKennelOwnerInfo` (validations e-mail + SIRET
+>   14 chiffres, sémantique remplacement — un champ vidé est effacé, pas
+>   préservé). Tous optionnels à la saisie : l'exigence de complétude tombe à
+>   la génération (F09), pas ici.
+> - **Numéro de puce du chiot** (I-CAD) : champ éditable dans la fiche chiot
+>   (section « Identification »), sauvegardé via `savePuppiesBatch` — la
+>   surface d'identité du chiot, jamais via `updatePuppyStatus` (qui reste
+>   statut + acquéreur + cessionDate). La puce est implantée des semaines
+>   après la naissance, d'où l'édition dans la fiche plutôt qu'à la création
+>   de portée.
+>
+> Correctif de mock inclus : `MockPuppyRepository.savePuppiesBatch` reconstruisait
+> le `Puppy` sur update sans `cessionDate`, le perdait — une divergence latente
+> avec le contrat identity-only du serveur, verrouillée par un nouveau test.
 
 ---
 
