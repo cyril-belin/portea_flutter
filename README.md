@@ -52,11 +52,11 @@ UI puis branchement au backend Serverpod.
 | F05 — Pesées                        | Backend Serverpod   |
 | F06 — Soins                         | Backend Serverpod   |
 | F07 — Rappels (notifications)       | Développé           |
-| F08 — Statut chiot                  | UI faite, mock      |
+| F08 — Statut chiot                  | Développé           |
 | F09 — Documents                     | UI faite, mock      |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
 
-Les fonctionnalités branchées au backend Serverpod (F01–F06) persistent les
+Les fonctionnalités branchées au backend Serverpod (F01–F08) persistent les
 données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
 utilisateur, anti-forging du `kennelId`). Les fonctionnalités « UI faite, mock »
 s'appuient sur un `MockDatabase` en mémoire : l'interface est navigable, les
@@ -76,6 +76,18 @@ données ne sont pas persistées.
 > aucun accès base de données : la résolution du nom de la cible (titre de la
 > notification) se fait dans le contexte appelant. Deep-link au tap :
 > `/puppies/<id>` (soin individuel) ou `/litters/<id>` (soin de portée).
+
+> F08 (statut chiot) branche la fiche chiot sur le backend pour le changement de
+> statut (`available`/`reserved`/`sold`) et le dossier acquéreur (nom, téléphone,
+> e-mail, adresse). La **règle de conservation** tient : un retour à `available`
+> n'efface **jamais** le dossier acquéreur ni la `cessionDate` — ces données
+> restent en base et sont simplement masquées en UI (la section acquéreur ne
+> s'affiche qu'en `reserved`/`sold`). Le cycle annulation/reprise du terrain
+> fonctionne : re-vendre sans ressaisir le dossier conserve le téléphone, l'e-mail
+> et l'adresse saisis précédemment. Côté serveur, `updatePuppyStatus` est la seule
+> surface d'écriture du statut et de l'acquéreur ; `savePuppiesBatch` ne touche
+> plus qu'à l'identité du chiot. Validations UI (e-mail / téléphone) en amont,
+> le serveur reste l'autorité.
 
 ---
 
