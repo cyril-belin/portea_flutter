@@ -6,6 +6,7 @@ import '../../../../core/errors/operation_state.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/status_badge_widget.dart';
+import '../../../settings/presentation/view_models/documents_view_model.dart';
 import '../view_models/puppy_file_view_model.dart';
 import '../widgets/growth_curve_widget.dart';
 
@@ -37,6 +38,14 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
       if (vm.puppy != null) {
         _syncBuyerControllers(vm.puppy!);
         _chipController.text = vm.puppy!.chipNumber ?? '';
+        // F09: load the emitted cession attestations for this puppy so the
+        // "Documents émis" section is populated. Only sold puppies have any.
+        if (vm.puppy!.status == 'sold') {
+          if (!mounted) return;
+          await context.read<DocumentsViewModel>().loadIssuedDocuments(
+            widget.id,
+          );
+        }
       }
     });
   }
@@ -779,9 +788,107 @@ class _PuppyFileScreenState extends State<PuppyFileScreen> {
                 ],
               ),
             ),
+            // F09 — "Documents émis": the list of attestations actually
+            // uploaded for this puppy (only sold puppies have any). Visible
+            // only when sold, regardless of premium (reading your own
+            // archived legal documents is not a premium-gated action).
+            if (!locked && vm.puppy?.status == 'sold') ...[
+              const SizedBox(height: 20),
+              _buildIssuedDocumentsList(),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// Lists the cession attestations emitted for this puppy (F09). Each row
+  /// shows the emission date and an "open" button that downloads the bytes
+  /// from the private storage (through the authenticated endpoint) and hands
+  /// them to the native share sheet. Reads your own archived documents — not
+  /// premium-gated.
+  Widget _buildIssuedDocumentsList() {
+    final docsVm = context.watch<DocumentsViewModel>();
+    final docs = docsVm.documentsFor(widget.id);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Documents émis',
+          style: AppTextStyles.sectionTitle.copyWith(fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        if (docs.isEmpty)
+          Text(
+            'Aucune attestation émise pour ce chiot.',
+            style: AppTextStyles.captionLabel,
+          )
+        else
+          ...docs.map((doc) => _buildIssuedDocumentRow(docsVm, doc)),
+      ],
+    );
+  }
+
+  Widget _buildIssuedDocumentRow(
+    DocumentsViewModel docsVm,
+    IssuedDocument doc,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.description_rounded,
+            color: AppColors.error,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Attestation du ${_formatIssuedDate(doc.issuedAt)}',
+              style: AppTextStyles.body,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Ouvrir',
+            icon: docsVm.isBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.open_in_new_rounded, size: 20),
+            onPressed: docsVm.isBusy
+                ? null
+                : () async {
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    final ok = await docsVm.openIssuedDocument(doc.id!);
+                    if (!mounted) return;
+                    if (!ok) {
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            docsVm.errorMessage ??
+                                'Le document n\'est pas disponible.',
+                          ),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                    }
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatIssuedDate(DateTime date) {
+    final d = date.toLocal();
+    return '${d.day.toString().padLeft(2, '0')}/'
+        '${d.month.toString().padLeft(2, '0')}/'
+        '${d.year} '
+        'à ${d.hour.toString().padLeft(2, '0')}:'
+        '${d.minute.toString().padLeft(2, '0')}';
   }
 }

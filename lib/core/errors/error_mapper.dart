@@ -39,6 +39,7 @@ String mapExceptionToMessage(Object error) {
   if (error is InvalidCareInputException) return error.message;
   if (error is InvalidPuppyInputException) return error.message;
   if (error is InvalidKennelInputException) return error.message;
+  if (error is IncompleteCessionDataException) return error.message;
   // NOTE: ActiveLitterLimitException deliberately NOT handled here.
 
   // --- Transport / HTTP layer ------------------------------------------------
