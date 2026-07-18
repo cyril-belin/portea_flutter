@@ -16,10 +16,14 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _breederFormKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _affixController = TextEditingController();
   final _siretController = TextEditingController();
-  final _ownerController = TextEditingController();
+  final _ownerNameController = TextEditingController();
+  final _ownerAddressController = TextEditingController();
+  final _ownerPhoneController = TextEditingController();
+  final _ownerEmailController = TextEditingController();
 
   @override
   void initState() {
@@ -31,7 +35,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _nameController.text = vm.kennel!.name;
         _affixController.text = vm.kennel!.affix ?? '';
         _siretController.text = vm.kennel!.siret ?? '';
-        _ownerController.text = vm.kennel!.ownerName ?? '';
+        _ownerNameController.text = vm.kennel!.ownerName ?? '';
+        _ownerAddressController.text = vm.kennel!.ownerAddress ?? '';
+        _ownerPhoneController.text = vm.kennel!.ownerPhone ?? '';
+        _ownerEmailController.text = vm.kennel!.ownerEmail ?? '';
       }
     });
   }
@@ -41,7 +48,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _nameController.dispose();
     _affixController.dispose();
     _siretController.dispose();
-    _ownerController.dispose();
+    _ownerNameController.dispose();
+    _ownerAddressController.dispose();
+    _ownerPhoneController.dispose();
+    _ownerEmailController.dispose();
     super.dispose();
   }
 
@@ -76,20 +86,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: _affixController,
                   decoration: const InputDecoration(labelText: 'Affixe'),
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _siretController,
-                  decoration: const InputDecoration(
-                    labelText: 'N° SIRET (Documents)',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _ownerController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de l\'exploitant',
-                  ),
-                ),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () async {
@@ -98,12 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       k.affix = _affixController.text.trim().isEmpty
                           ? null
                           : _affixController.text.trim();
-                      k.siret = _siretController.text.trim().isEmpty
-                          ? null
-                          : _siretController.text.trim();
-                      k.ownerName = _ownerController.text.trim().isEmpty
-                          ? null
-                          : _ownerController.text.trim();
                       final dashboardVm = context.read<DashboardViewModel>();
                       final messenger = ScaffoldMessenger.of(context);
                       await viewModel.updateKennel(k);
@@ -126,6 +116,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                   },
                   child: const Text('Enregistrer l\'élevage'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    // Breeder (owner) info — the dedicated write surface (F09 prerequisite).
+    // All five fields are optional here; completeness is enforced at attestation
+    // generation (F09), not at data entry. email + SIRET validators mirror the
+    // server rules (comfort UX; the server remains the authority).
+    final breederInfoSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Informations éleveur', style: AppTextStyles.sectionTitle),
+        const SizedBox(height: 4),
+        Text(
+          'Ces informations apparaîtront sur l\'attestation de cession.',
+          style: AppTextStyles.captionLabel,
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _ownerNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nom de l\'exploitant',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _ownerAddressController,
+                  decoration: const InputDecoration(
+                    labelText: 'Adresse de l\'élevage',
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _ownerPhoneController,
+                  decoration: const InputDecoration(labelText: 'Téléphone'),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _ownerEmailController,
+                  decoration: const InputDecoration(labelText: 'E-mail'),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return null; // optional
+                    if (!RegExp(
+                      r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$',
+                    ).hasMatch(text)) {
+                      return 'Adresse e-mail invalide.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _siretController,
+                  decoration: const InputDecoration(
+                    labelText: 'N° SIRET (14 chiffres)',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return null; // optional
+                    if (!RegExp(r'^[0-9]{14}$').hasMatch(text)) {
+                      return 'Le SIRET doit comporter exactement 14 chiffres.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: viewModel.isBusy
+                      ? null
+                      : () async {
+                          if (!(_breederFormKey.currentState?.validate() ??
+                              false)) {
+                            return;
+                          }
+                          final messenger = ScaffoldMessenger.of(context);
+                          final ok = await viewModel.updateKennelOwnerInfo(
+                            ownerName: _ownerNameController.text.trim(),
+                            ownerAddress: _ownerAddressController.text.trim(),
+                            ownerPhone: _ownerPhoneController.text.trim(),
+                            ownerEmail: _ownerEmailController.text.trim(),
+                            siret: _siretController.text.trim(),
+                          );
+                          if (!mounted) return;
+                          if (!ok || viewModel.errorMessage != null) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  viewModel.errorMessage ??
+                                      'Une erreur est survenue.',
+                                ),
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Informations éleveur enregistrées',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  child: const Text('Enregistrer'),
                 ),
               ],
             ),
@@ -289,37 +396,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           constraints: const BoxConstraints(maxWidth: 1100),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
-            child: Form(
-              key: _formKey,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 800) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 6,
-                          child: kennelInfoSection,
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          flex: 5,
-                          child: otherSections,
-                        ),
-                      ],
-                    );
-                  } else {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        kennelInfoSection,
-                        const SizedBox(height: 24),
-                        otherSections,
-                      ],
-                    );
-                  }
-                },
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Each form lives in its own Form widget (Flutter does not allow
+                // nested Forms), so the kennel section validates independently
+                // from the breeder section.
+                final leftColumn = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Form(key: _formKey, child: kennelInfoSection),
+                    const SizedBox(height: 24),
+                    Form(key: _breederFormKey, child: breederInfoSection),
+                  ],
+                );
+                if (constraints.maxWidth > 800) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 6, child: leftColumn),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 5, child: otherSections),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      leftColumn,
+                      const SizedBox(height: 24),
+                      otherSections,
+                    ],
+                  );
+                }
+              },
             ),
           ),
         ),

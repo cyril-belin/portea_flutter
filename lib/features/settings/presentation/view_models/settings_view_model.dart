@@ -113,6 +113,50 @@ class SettingsViewModel extends ChangeNotifier {
     }
   }
 
+  /// Updates the breeder (owner) info of the kennel through the dedicated
+  /// endpoint (F09 prerequisite): `ownerName`, `ownerAddress`, `ownerPhone`,
+  /// `ownerEmail` and `siret`. All params are optional and REPLACEMENT in
+  /// semantics — a field left empty is erased on the row, not preserved (the
+  /// form resubmits the whole dossier). The server validates email shape and
+  /// SIRET (14 digits); a refusal is surfaced via the central error mapper.
+  ///
+  /// Optimistic with rollback: the local kennel is updated from the fresh row
+  /// returned by the server on success, restored to the previous value on
+  /// failure. Returns `true` on success, `false` on failure (the screen shows
+  /// [errorMessage] either way).
+  Future<bool> updateKennelOwnerInfo({
+    String? ownerName,
+    String? ownerAddress,
+    String? ownerPhone,
+    String? ownerEmail,
+    String? siret,
+  }) async {
+    if (_state == OperationState.mutating) return false;
+    final previousKennel = _kennel;
+    _state = OperationState.mutating;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _kennel = await _kennelRepository.updateKennelOwnerInfo(
+        ownerName: ownerName,
+        ownerAddress: ownerAddress,
+        ownerPhone: ownerPhone,
+        ownerEmail: ownerEmail,
+        siret: siret,
+      );
+      _state = OperationState.success;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _kennel = previousKennel;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> togglePremium(bool premium) async {
     if (_state == OperationState.mutating) return;
     _state = OperationState.mutating;

@@ -71,10 +71,60 @@ class PuppyFileViewModel extends ChangeNotifier {
     }
   }
 
-  /// Snapshot helper for optimistic-mutation rollback. Serverpod model fields
-  /// are mutable, so we clone the values we may touch before the await. Every
-  /// field is cloned, including cessionDate (F08 — was missing before, a
-  /// latent rollback bug).
+  /// Saves the puppy's chip number (I-CAD) through the litter's identity write
+  /// surface [savePuppiesBatch]. The chip is implanted weeks after birth, long
+  /// after the litter batch was created, so the fiche chiot is the natural place
+  /// to edit it. `updatePuppyStatus` deliberately has no chipNumber param (it
+  /// owns status + buyer* + cessionDate only — the F08 split).
+  ///
+  /// Because [savePuppiesBatch] is whole-litter and REPLACEMENT in semantics (a
+  /// puppy absent from the payload is deleted), this loads the full litter, sets
+  /// the chip on the targeted row only, and re-saves the whole list. The server
+  /// update branch is IDENTITY-ONLY (F08 rule): status, buyer* and cessionDate
+  /// are preserved on every chip save — a chip edit can never smuggle a status
+  /// or erase a dossier.
+  ///
+  /// Optimistic with rollback: the local chip is set immediately and restored
+  /// from the snapshot on failure. Double-submit guard (claim 2.3).
+  Future<void> saveChipNumber(String chipNumber) async {
+    if (_puppy == null) return;
+    if (_state == OperationState.mutating) return;
+    final previous = _snapshot();
+    final normalized = chipNumber.trim().isEmpty ? null : chipNumber.trim();
+    _puppy!.chipNumber = normalized;
+    _state = OperationState.mutating;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final litterId = _puppy!.litterId;
+      final siblings = await _puppyRepository.getPuppies(litterId);
+      // Set the chip on the targeted row; leave siblings' chipNumber untouched
+      // (they keep their own value or null).
+      for (final p in siblings) {
+        if (p.id == _puppy!.id) {
+          p.chipNumber = normalized;
+        }
+      }
+      final freshList = await _puppyRepository.savePuppiesBatch(
+        litterId,
+        siblings,
+      );
+      final fresh = freshList.firstWhere(
+        (p) => p.id == _puppy!.id,
+        orElse: () => _puppy!,
+      );
+      _puppy = fresh;
+      _state = OperationState.success;
+    } catch (e) {
+      _puppy = previous;
+      _errorMessage = mapExceptionToMessage(e);
+      _state = OperationState.error;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Puppy _snapshot() => Puppy(
     id: _puppy!.id,
     litterId: _puppy!.litterId,

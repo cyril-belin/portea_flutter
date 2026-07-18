@@ -13,9 +13,9 @@ import 'package:portea_client/portea_client.dart';
 /// Two disjoint Serverpod exception hierarchies exist (there is no shared
 /// `ServerpodException` base):
 /// - [SerializableException] — typed business exceptions, transported across
-///   the wire with their concrete type preserved (our six `.spy.yaml`
-///   exceptions). Their `.message` is already a French business sentence
-///   authored on the server; we surface it verbatim, never reworded.
+///   the wire with their concrete type preserved (our `.spy.yaml` exceptions).
+///   Their `.message` is already a French business sentence authored on the
+///   server; we surface it verbatim, never reworded.
 /// - [ServerpodClientException] — HTTP/transport layer, carrying a numeric
 ///   [ServerpodClientException.statusCode] (`-1` = unreachable, `401` =
 ///   session dead, `500` = server bug, …).
@@ -38,6 +38,7 @@ String mapExceptionToMessage(Object error) {
   if (error is InvalidCareRelationException) return error.message;
   if (error is InvalidCareInputException) return error.message;
   if (error is InvalidPuppyInputException) return error.message;
+  if (error is InvalidKennelInputException) return error.message;
   // NOTE: ActiveLitterLimitException deliberately NOT handled here.
 
   // --- Transport / HTTP layer ------------------------------------------------

@@ -37,6 +37,23 @@ class ServerpodKennelRepository implements IKennelRepository {
     await _client.kennel.updateKennel(kennel);
   }
 
+  @override
+  Future<Kennel> updateKennelOwnerInfo({
+    String? ownerName,
+    String? ownerAddress,
+    String? ownerPhone,
+    String? ownerEmail,
+    String? siret,
+  }) async {
+    return _client.kennel.updateKennelOwnerInfo(
+      ownerName: ownerName,
+      ownerAddress: ownerAddress,
+      ownerPhone: ownerPhone,
+      ownerEmail: ownerEmail,
+      siret: siret,
+    );
+  }
+
   /// Reads the cached kennel id, or `null` if none has been stored yet.
   /// Display cache only — never used for authorization.
   static Future<int?> getCachedKennelId() async {

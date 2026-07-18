@@ -748,6 +748,119 @@ void main() {
       },
     );
 
+    // ---- F09 prerequisite: chip number (I-CAD) ----
+
+    test(
+      'saveChipNumber persists the chip through the batch path and reflects it '
+      'locally',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        expect(viewModel.puppy!.chipNumber, isNull);
+
+        await viewModel.saveChipNumber('123456789012345');
+
+        expect(viewModel.state, OperationState.success);
+        expect(viewModel.errorMessage, isNull);
+        expect(viewModel.puppy!.chipNumber, '123456789012345');
+
+        // Persisted to the repository.
+        final saved = await puppyRepo.getPuppy(1);
+        expect(saved!.chipNumber, '123456789012345');
+      },
+    );
+
+    test(
+      'saveChipNumber PRESERVES status, buyer* and cessionDate (F08 identity-'
+      'only update rule)',
+      () async {
+        // The chip is saved through savePuppiesBatch, whose UPDATE branch is
+        // IDENTITY-ONLY (F08): status, buyer* and cessionDate must survive a
+        // chip edit. This is the load-bearing rule for routing chip edits
+        // through the batch path instead of a dedicated endpoint.
+        await viewModel.loadPuppyFile(1);
+        await viewModel.updateStatus('reserved');
+        await viewModel.saveBuyerInfo(
+          name: 'Marie',
+          phone: '06 12 34 56 78',
+          email: 'marie@example.com',
+          address: 'Paris',
+        );
+        await viewModel.updateStatus('sold');
+        final before = viewModel.puppy!;
+        expect(before.buyerName, 'Marie');
+        expect(before.cessionDate, isNotNull);
+
+        await viewModel.saveChipNumber('987654321098765');
+
+        final after = viewModel.puppy!;
+        expect(after.chipNumber, '987654321098765');
+        // status / buyer* / cessionDate intact.
+        expect(after.status, 'sold');
+        expect(after.buyerName, 'Marie');
+        expect(after.buyerPhone, '06 12 34 56 78');
+        expect(after.buyerEmail, 'marie@example.com');
+        expect(after.buyerAddress, 'Paris');
+        expect(after.cessionDate, isNotNull);
+      },
+    );
+
+    test(
+      'saveChipNumber does NOT erase siblings (whole-litter batch keeps the '
+      'other puppies)',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        // Litter 1 has 3 seeded puppies.
+        final litter = await puppyRepo.getPuppies(1);
+        expect(litter.length, 3);
+
+        await viewModel.saveChipNumber('111111111111111');
+
+        // All 3 puppies are still there.
+        final after = await puppyRepo.getPuppies(1);
+        expect(after.length, 3);
+        // Only the targeted puppy (id 1) got the chip.
+        final targeted = after.firstWhere((p) => p.id == 1);
+        expect(targeted.chipNumber, '111111111111111');
+        // Siblings keep their chip (null) — not deleted, not altered.
+        final sibling = after.firstWhere((p) => p.id == 2);
+        expect(sibling.chipNumber, isNull);
+      },
+    );
+
+    test(
+      'saveChipNumber: an empty value clears the chip (null in the repository)',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        await viewModel.saveChipNumber('123456789012345');
+        expect(viewModel.puppy!.chipNumber, '123456789012345');
+
+        await viewModel.saveChipNumber('   ');
+
+        expect(viewModel.puppy!.chipNumber, isNull);
+        final saved = await puppyRepo.getPuppy(1);
+        expect(saved!.chipNumber, isNull);
+      },
+    );
+
+    test(
+      'saveChipNumber failure rolls back the chip and surfaces errorMessage',
+      () async {
+        await viewModel.loadPuppyFile(1);
+        expect(viewModel.puppy!.chipNumber, isNull);
+
+        puppyRepo.throwOnNext = Exception('boom');
+        await viewModel.saveChipNumber('123456789012345');
+
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(
+          viewModel.puppy!.chipNumber,
+          isNull,
+          reason: 'optimistic mutation must roll back on failure',
+        );
+      },
+    );
+
     test(
       'addSingleWeight appends weight entry and reloads weighings',
       () async {

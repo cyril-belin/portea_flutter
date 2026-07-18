@@ -139,23 +139,23 @@ class MockPuppyRepository implements IPuppyRepository {
           ),
         );
       } else {
-        await updatePuppy(
-          Puppy(
-            id: item.id,
-            litterId: litterId,
+        // IDENTITY-ONLY update (F08): the batch owns name/sex/color/chip/
+        // weight/photo. status, buyer* and cessionDate are PRESERVED — they
+        // change exclusively through updatePuppyStatus. Mirrors the server's
+        // copyWith branch, which leaves those fields untouched.
+        final idx = _db.puppies.indexWhere((p) => p.id == item.id);
+        if (idx != -1) {
+          final existing = _db.puppies[idx];
+          _db.puppies[idx] = existing.copyWith(
             name: item.name,
             sex: item.sex,
             color: item.color,
-            status: item.status,
             chipNumber: item.chipNumber,
             birthWeight: item.birthWeight,
             photoUrl: item.photoUrl,
-            buyerName: item.buyerName,
-            buyerPhone: item.buyerPhone,
-            buyerEmail: item.buyerEmail,
-            buyerAddress: item.buyerAddress,
-          ),
-        );
+            // status, buyer*, cessionDate intentionally NOT overridden.
+          );
+        }
       }
     }
 
