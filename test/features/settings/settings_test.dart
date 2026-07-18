@@ -96,6 +96,138 @@ void main() {
       final dbPremium = await settingsRepo.isPremium();
       expect(dbPremium, isTrue);
     });
+
+    // ---- F09 prerequisite: breeder (owner) info ----
+
+    test(
+      'updateKennelOwnerInfo persists all five fields (trimmed) and returns '
+      'true',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+
+        final ok = await viewModel.updateKennelOwnerInfo(
+          ownerName: '  Marie Dupont  ',
+          ownerAddress: '12 rue des Chiens',
+          ownerPhone: '0612345678',
+          ownerEmail: '  marie@elevage.fr  ',
+          siret: '12345678900012',
+        );
+
+        expect(ok, isTrue);
+        expect(viewModel.state, OperationState.success);
+        expect(viewModel.errorMessage, isNull);
+        expect(viewModel.kennel!.ownerName, 'Marie Dupont');
+        expect(viewModel.kennel!.ownerAddress, '12 rue des Chiens');
+        expect(viewModel.kennel!.ownerPhone, '0612345678');
+        expect(viewModel.kennel!.ownerEmail, 'marie@elevage.fr');
+        expect(viewModel.kennel!.siret, '12345678900012');
+
+        // Persisted in the repository.
+        final saved = await kennelRepo.getKennel();
+        expect(saved!.ownerName, 'Marie Dupont');
+        expect(saved.siret, '12345678900012');
+      },
+    );
+
+    test(
+      'updateKennelOwnerInfo: an emptied field becomes null (erasable, '
+      'replacement semantics)',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+        // Seed a full dossier.
+        await viewModel.updateKennelOwnerInfo(
+          ownerName: 'Marie',
+          ownerAddress: '12 rue',
+          ownerPhone: '0612345678',
+          ownerEmail: 'marie@elevage.fr',
+          siret: '12345678900012',
+        );
+
+        // Resubmit with everything emptied.
+        final ok = await viewModel.updateKennelOwnerInfo(
+          ownerName: '   ',
+          ownerAddress: '',
+          ownerPhone: null,
+          ownerEmail: '   ',
+          siret: '',
+        );
+
+        expect(ok, isTrue);
+        expect(viewModel.kennel!.ownerName, isNull);
+        expect(viewModel.kennel!.ownerAddress, isNull);
+        expect(viewModel.kennel!.ownerPhone, isNull);
+        expect(viewModel.kennel!.ownerEmail, isNull);
+        expect(viewModel.kennel!.siret, isNull);
+      },
+    );
+
+    test(
+      'updateKennelOwnerInfo: an invalid email is refused and surfaces a '
+      'French message',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+
+        final ok = await viewModel.updateKennelOwnerInfo(
+          ownerEmail: 'pas-un-email',
+        );
+
+        expect(ok, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        // Nothing persisted.
+        final saved = await kennelRepo.getKennel();
+        expect(saved!.ownerEmail, isNull);
+      },
+    );
+
+    test(
+      'updateKennelOwnerInfo: a SIRET that is not 14 digits is refused',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+        // Capture the pre-existing siret so we can assert it is preserved on
+        // refusal (rollback), rather than asserting null — the seed may carry
+        // a siret.
+        final previousSiret = viewModel.kennel!.siret;
+
+        final ok = await viewModel.updateKennelOwnerInfo(siret: '12345');
+
+        expect(ok, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        // The refused edit rolls back: the row keeps its prior siret.
+        expect(viewModel.kennel!.siret, equals(previousSiret));
+      },
+    );
+
+    test(
+      'updateKennelOwnerInfo: a transport failure rolls back the local kennel',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+        final originalOwner = viewModel.kennel!.ownerName;
+
+        kennelRepo.throwOnNext = const ServerpodClientException('boom', -1);
+        final ok = await viewModel.updateKennelOwnerInfo(ownerName: 'Rejeté');
+
+        expect(ok, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        expect(
+          viewModel.kennel!.ownerName,
+          equals(originalOwner),
+          reason: 'optimistic mutation must roll back on failure',
+        );
+      },
+    );
   });
 
   group('SettingsViewModel — error handling', () {
