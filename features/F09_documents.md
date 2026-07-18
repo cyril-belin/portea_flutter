@@ -106,11 +106,16 @@ Fonctionnalité **premium** uniquement.
 
 ## Critères d'acceptation
 
-- [ ] En gratuit : tap document → paywall.
-- [ ] En premium : tap "Attestation de cession" pour un chiot vendu → PDF généré, uploadé sur Serverpod, URL stockée.
-- [ ] `PuppyFileScreen` liste les attestations émises pour un chiot `'sold'`.
-- [ ] En premium : tap "Registre d'élevage" → PDF de toutes les portées → partagé via sheet iOS / intent Android.
-- [ ] Registre ne crée aucun enregistrement en base (pas d'archivage).
-- [ ] `DocumentsScreen` n'affiche que 2 entrées (fiche d'accompagnement retirée).
-- [ ] Les données PDF viennent de Serverpod (pas du mock).
-- [ ] `dart analyze` 0 warning.
+- [x] En gratuit : tap document → paywall (gating `isPremium` client conservé).
+- [x] En premium : tap "Attestation de cession" pour un chiot vendu → PDF généré, uploadé sur Serverpod (storage **private**), `IssuedDocument` enregistré. Snackbar de succès **uniquement** après confirmation serveur.
+- [x] `PuppyFileScreen` liste les attestations émises pour un chiot `'sold'` (section « Documents émis » + ouverture via endpoint authentifié).
+- [x] En premium : tap "Registre d'élevage" → PDF de toutes les portées → partagé via `Printing.sharePdf()`.
+- [x] Registre ne crée aucun enregistrement en base (pas d'archivage) — testé.
+- [x] `DocumentsScreen` n'affiche que 2 entrées (fiche d'accompagnement retirée).
+- [x] Les données PDF viennent de Serverpod (kennel + litter + puppies + mère).
+- [x] `dart analyze` 0 warning (serveur + Flutter).
+- [x] Validation serveur du dossier cession (status, cessionDate, buyerName, buyerAddress, contact) → `IncompleteCessionDataException` avec champs manquants énumérés.
+- [x] Consentement éclairé : `chipNumber` null → dialogue de confirmation avant génération (pas un blocage).
+- [x] Fonts Unicode (NotoSans) — les accents français et le tiret long rendent correctement.
+- [x] Tests backend : 13/13 (`document_endpoint_test.dart`) + suite complète 109/109.
+- [x] Tests Flutter : 167/167 (ViewModel, error_mapper, templates).
