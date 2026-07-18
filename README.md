@@ -20,6 +20,9 @@ généré vivent dans des dépôts séparés (voir *Monorepo* ci-dessous).
   navigation par onglets via `ShellRoute`).
 - **flutter_local_notifications** + **flutter_timezone** : rappels de soins
   via notifications locales OS (iOS + Android), replanifiés à chaque démarrage.
+- **pdf** + **printing** : génération et partage des documents légaux F09
+  (attestation de cession, registre d'élevage). Font Unicode NotoSans bundlée
+  pour le rendu correct des accents français.
 - **Serverpod 4.0.0-beta** : backend en Dart, PostgreSQL,
   authentification intégrée (email), WebSocket typés.
 - **RevenueCat** : prévu pour la gestion d'abonnement (non intégré à ce
@@ -53,15 +56,12 @@ UI puis branchement au backend Serverpod.
 | F06 — Soins                         | Backend Serverpod   |
 | F07 — Rappels (notifications)       | Développé           |
 | F08 — Statut chiot                  | Développé           |
-| F09 — Documents                     | Prérequis développé |
+| F09 — Documents                     | Développé           |
 | F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
 
-Les fonctionnalités branchées au backend Serverpod (F01–F08) persistent les
+Les fonctionnalités branchées au backend Serverpod (F01–F09) persistent les
 données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
-utilisateur, anti-forging du `kennelId`). La ligne F09 « Prérequis développé »
-désigne les **données** exigées par l'attestation de cession (infos éleveur +
-numéro de puce du chiot) : elles sont saisissables et persistées en base, mais
-la **génération** du document reste à faire (mock). Les fonctionnalités
+utilisateur, anti-forging du `kennelId`). Les fonctionnalités
 « UI faite, mock » s'appuient sur un `MockDatabase` en mémoire : l'interface est
 navigable, les données ne sont pas persistées.
 
@@ -110,6 +110,28 @@ navigable, les données ne sont pas persistées.
 > Correctif de mock inclus : `MockPuppyRepository.savePuppiesBatch` reconstruisait
 > le `Puppy` sur update sans `cessionDate`, le perdait — une divergence latente
 > avec le contrat identity-only du serveur, verrouillée par un nouveau test.
+
+> F09 (documents) génère deux PDF légaux pré-remplis depuis les données réelles :
+> - **Attestation de cession** (par chiot `sold`) : générée côté client (package
+>   `pdf`), téléversée vers le storage **private** Serverpod, enregistrée comme
+>   `IssuedDocument`. Le snack de succès ne s'affiche **qu'après** confirmation
+>   serveur (mort du stub AlertDialog « PDF généré » — verdict 2.2). Si le
+>   dossier est incomplet (statut ≠ `sold`, `cessionDate` manquante, acquéreur
+>   incomplet), le serveur refuse avec une `IncompleteCessionDataException` dont
+>   le message **énumère** les champs manquants. Date de cession =
+>   `puppy.cessionDate` (jamais `DateTime.now()` — doc légal). Si `chipNumber`
+>   est null, un dialogue de **consentement éclairé** précise que l'attestation
+>   portera « Non renseigné » avant de générer (pas un blocage).
+> - **Registre d'élevage** (par élevage, toutes portées) : généré et partagé via
+>   `Printing.sharePdf()` à chaque appel. **Aucun upload, aucun enregistrement**
+>   — la surface serveur est exclusivement l'attestation.
+>
+> La lecture d'une attestation archivée passe par un endpoint **authentifié**
+> (`downloadCessionPdf`) : le storage étant private, aucune URL publique ne fuit
+> (anti-forge re-vérifié sur le `documentId` via le puppy). Font Unicode NotoSans
+> bundlée — la font par défaut (Helvetica) droupe les accents français, ce qui
+> est inacceptable sur un document légal. Le gating premium reste **client**
+> (F10 fera du serveur l'autorité).
 
 ---
 
