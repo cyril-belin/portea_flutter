@@ -8,7 +8,7 @@ est freemium : les fonctionnalités de base sont gratuites, l'édition de
 documents et les options avancées relèvent d'un abonnement.
 
 Ce dépôt contient le client Flutter. Le backend Serverpod et le client
-généré vivent dans des dépôts séparés (voir *Monorepo* ci-dessous).
+généré vivent dans des dépôts séparés (voir *Topologie* ci-dessous).
 
 ---
 
@@ -23,20 +23,35 @@ généré vivent dans des dépôts séparés (voir *Monorepo* ci-dessous).
 - **pdf** + **printing** : génération et partage des documents légaux F09
   (attestation de cession, registre d'élevage). Font Unicode NotoSans bundlée
   pour le rendu correct des accents français.
+- **purchases_flutter 8.11.0** : SDK RevenueCat côté client. L'app déclenche
+  l'achat et la restauration, mais **le serveur reste l'autorité** du statut
+  premium (F10-A) — il interroge l'API REST RevenueCat au moyen d'une clé
+  secrète jamais embarquée dans le client, et persiste
+  `Kennel.premiumUntil`. Le client ne fait que déclencher la synchronisation.
+- **share_plus 12.x** : export RGPD des données de l'élevage (F10-B) au format
+  JSON via le share sheet OS.
 - **Serverpod 4.0.0-beta** : backend en Dart, PostgreSQL,
   authentification intégrée (email), WebSocket typés.
-- **RevenueCat** : prévu pour la gestion d'abonnement (non intégré à ce
-  stade).
 
-### Monorepo
+### Topologie
 
-Le projet est organisé en trois packages :
+Le projet est un **monorepo en 3 morceaux**, chacun étant un dépôt git
+autonome :
 
 | Dépôt            | Rôle                                               |
 |------------------|----------------------------------------------------|
 | `portea_flutter` | Application Flutter (ce dépôt)                     |
 | `portea_server`  | Backend Serverpod, endpoints, modèles, migrations  |
 | `portea_client`  | Code client généré, partagé entre les deux         |
+
+> ⚠️ **Ce dépôt ne se clone pas seul.** Un clone sain nécessite les 3 morceaux
+> côte à côte sous un **dépôt git parapluie** qui versionne `portea_client/`
+> (le client généré) et le `pubspec.yaml` de workspace (résolution
+> `workspace:` + `dependency_overrides: win32 ^6.0.0` pour réconcilier le pin
+> `win32 ^6` de Serverpod et le pin transitif `win32 ^5` de `share_plus`).
+> Sans le parapluie, `portea_flutter pub get` ne résout pas `portea_client` et
+> l'app ne compile pas. Voir le `README.md` de la racine du parapluie pour la
+> procédure de clonage exacte.
 
 ---
 
@@ -57,13 +72,31 @@ UI puis branchement au backend Serverpod.
 | F07 — Rappels (notifications)       | Développé           |
 | F08 — Statut chiot                  | Développé           |
 | F09 — Documents                     | Développé           |
-| F10 — Premium (RevenueCat + RGPD)   | UI faite, mock      |
+| F10-A — Premium (RevenueCat)        | Développé           |
+| F10-B — RGPD (suppression + export) | Développé           |
 
-Les fonctionnalités branchées au backend Serverpod (F01–F09) persistent les
-données dans PostgreSQL ; le kennel est dérivé de la session (isolation par
-utilisateur, anti-forging du `kennelId`). Les fonctionnalités
-« UI faite, mock » s'appuient sur un `MockDatabase` en mémoire : l'interface est
-navigable, les données ne sont pas persistées.
+**La V1 est code-complete** : les 10 fonctionnalités du périmètre sont
+développées et branchées au backend Serverpod. Les données persistent dans
+PostgreSQL ; le kennel est dérivé de la session (isolation par utilisateur,
+anti-forging du `kennelId`). Il ne reste que des étapes de mise en production
+(voir *Restants connus* ci-dessous).
+
+> F10-A (Premium RevenueCat) : l'app déclenche l'achat et la restauration via
+> `purchases_flutter`, puis appelle `syncPremiumStatus` pour que le serveur
+> interroge RevenueCat (clé secrète serveur) et persiste `Kennel.premiumUntil`.
+> Le client **n'est jamais l'autorité** du statut premium — il demande au
+> serveur de resynchroniser et lit le résultat via `isPremium`. Un échec API
+> ne rétrograde jamais un utilisateur payant : `premiumUntil` est préservé
+> tant que la prochaine synchro n'a pas réussi.
+
+> F10-B (RGPD) : suppression de compte à double confirmation (dialogue
+> d'irréversibilité puis saisie d'un mot de confirmation) et export des
+> données au format JSON via share sheet (`share_plus`). La suppression est
+> transactionnelle côté serveur et annule toutes les notifications locales +
+> nettoie les `SharedPreferences` + déconnecte avant tout message de succès.
+> L'export ne contient aucune donnée d'un autre élevage. Aucun message de
+> succès n'est affiché avant confirmation réelle du serveur (les anciens stubs
+> « Compte supprimé » et « Données exportées » ont été supprimés).
 
 > F06 (soins) a corrigé un bug de l'audit externe (claim 4.3) : le soin groupé
 > crée désormais **une seule entrée parent** portant le rappel, et une entrée
@@ -130,8 +163,7 @@ navigable, les données ne sont pas persistées.
 > (`downloadCessionPdf`) : le storage étant private, aucune URL publique ne fuit
 > (anti-forge re-vérifié sur le `documentId` via le puppy). Font Unicode NotoSans
 > bundlée — la font par défaut (Helvetica) droupe les accents français, ce qui
-> est inacceptable sur un document légal. Le gating premium reste **client**
-> (F10 fera du serveur l'autorité).
+> est inacceptable sur un document légal.
 
 ---
 
@@ -152,7 +184,8 @@ navigable, les données ne sont pas persistées.
 cp assets/config.example.json assets/config.json
 # Éditer assets/config.json : apiUrl du backend Serverpod
 
-# Dépendances
+# Dépendances — depuis la racine du parapluie (workspace), PAS depuis
+# portea_flutter/ seul : la résolution workspace et l'override win32 y vivent.
 flutter pub get
 ```
 
@@ -160,7 +193,7 @@ flutter pub get
 
 ```bash
 # Démarre le backend Serverpod (PostgreSQL embarqué) + l'app Flutter
-# avec hot reload sur les deux. À lancer depuis la racine du monorepo.
+# avec hot reload sur les deux. À lancer depuis la racine du parapluie.
 serverpod start
 ```
 
@@ -173,8 +206,29 @@ flutter run
 ### Tests
 
 ```bash
+# Frontend : depuis portea_flutter/
 flutter test
+
+# Backend : depuis portea_server/, en SÉQUENTIEL (dette de harnais parallèle)
+dart test -j 1
 ```
+
+---
+
+## Restants connus (post-V1, code-complete)
+
+La V1 est code-complete. Reste à mettre en production :
+
+- **Configuration RevenueCat stores** : `purchases_flutter` est intégré mais
+  les configurations App Store Connect / Google Play (produits, entitlements,
+  clés partagées) et le secret RevenueCat côté serveur (`revenueCatSecretApiKey`
+  dans `portea_server/config/passwords.yaml`) ne sont pas encore positionnés en
+  production.
+- **Déploiement VPS + webhook RevenueCat** : déploiement du serveur en
+  production et branchement optionnel d'un webhook RevenueCat pour
+  synchroniser `premiumUntil` sans dépendre uniquement des déclenchements
+  client (la synchro client existe déjà ; le webhook fiabiliserait les
+  remboursements / annulations hors app).
 
 ---
 
