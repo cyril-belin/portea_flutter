@@ -5,6 +5,8 @@ import 'package:portea_flutter/core/errors/operation_state.dart';
 import 'package:portea_flutter/features/settings/data/repositories/mock_settings_repository.dart';
 import 'package:portea_flutter/features/settings/presentation/view_models/settings_view_model.dart';
 import 'package:portea_flutter/features/onboarding/data/repositories/mock_kennel_repository.dart';
+import '../../helpers/mock_account_repository.dart';
+import '../../helpers/mock_notification_service.dart';
 import '../../helpers/test_helpers.dart';
 
 void main() {
@@ -41,6 +43,9 @@ void main() {
       viewModel = SettingsViewModel(
         kennelRepository: kennelRepo,
         settingsRepository: settingsRepo,
+        accountRepository: MockAccountRepository(),
+        notificationService: MockNotificationService(),
+        clearLocalState: () async {},
       );
     });
 
@@ -224,6 +229,9 @@ void main() {
       viewModel = SettingsViewModel(
         kennelRepository: kennelRepo,
         settingsRepository: settingsRepo,
+        accountRepository: MockAccountRepository(),
+        notificationService: MockNotificationService(),
+        clearLocalState: () async {},
       );
     });
 
@@ -284,6 +292,9 @@ void main() {
       viewModel = SettingsViewModel(
         kennelRepository: kennelRepo,
         settingsRepository: settingsRepo,
+        accountRepository: MockAccountRepository(),
+        notificationService: MockNotificationService(),
+        clearLocalState: () async {},
       );
     });
 
@@ -332,4 +343,163 @@ void main() {
       },
     );
   });
+
+  group('SettingsViewModel — RGPD deleteAccount', () {
+    late MockKennelRepository kennelRepo;
+    late MockSettingsRepository settingsRepo;
+    late MockAccountRepository accountRepo;
+    late MockNotificationService notifService;
+    late List<String> clearLocalStateLog;
+    late SettingsViewModel viewModel;
+
+    setUp(() {
+      resetMockDatabase();
+      kennelRepo = MockKennelRepository();
+      settingsRepo = MockSettingsRepository();
+      accountRepo = MockAccountRepository();
+      notifService = MockNotificationService();
+      clearLocalStateLog = [];
+      viewModel = SettingsViewModel(
+        kennelRepository: kennelRepo,
+        settingsRepository: settingsRepo,
+        accountRepository: accountRepo,
+        notificationService: notifService,
+        clearLocalState: () async {
+          clearLocalStateLog.add('clearLocalState');
+        },
+      );
+    });
+
+    test(
+      'on success: runs deleteAccount → cancelAll → clearLocalState → '
+      'signOutDevice IN THIS ORDER',
+      () async {
+        // Pre-seed a kennel so we can assert it is cleared on success.
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+        expect(viewModel.kennel, isNotNull);
+
+        final ok = await viewModel.deleteAccount();
+
+        expect(ok, isTrue);
+        expect(viewModel.state, OperationState.success);
+        expect(viewModel.kennel, isNull, reason: 'local kennel is wiped');
+        // The exact RGPD cleanup order: server first, then local.
+        expect(
+          accountRepo.calls,
+          ['deleteAccount', 'signOutDevice'],
+          reason: 'no local cleanup must run before the server confirms',
+        );
+        expect(notifService.cancelAllCalls, 1);
+        expect(clearLocalStateLog, ['clearLocalState']);
+      },
+    );
+
+    test(
+      'on server failure: NO local cleanup runs, NO signOut, errorMessage set',
+      () async {
+        // The server call fails — every local step must be skipped.
+        accountRepo.deleteAccountError = const ServerpodClientException(
+          'network down',
+          -1,
+        );
+
+        final ok = await viewModel.deleteAccount();
+
+        expect(ok, isFalse);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+        // ONLY deleteAccount was attempted — signOut was NOT (the failure
+        // short-circuited before any local cleanup).
+        expect(accountRepo.calls, ['deleteAccount']);
+        expect(
+          notifService.cancelAllCalls,
+          0,
+          reason: 'cancelAll must not run on server failure',
+        );
+        expect(
+          clearLocalStateLog,
+          isEmpty,
+          reason: 'SharedPreferences must NOT be cleared on failure',
+        );
+      },
+    );
+
+    test(
+      'a thrown exception during cancelAll does NOT undo the deletion '
+      '(best-effort cleanup)',
+      () async {
+        // Server succeeds; cancelAll throws; the flow continues and the
+        // deletion is still considered successful.
+        final throwingNotifService = _ThrowingNotificationService();
+        viewModel = SettingsViewModel(
+          kennelRepository: kennelRepo,
+          settingsRepository: settingsRepo,
+          accountRepository: accountRepo,
+          notificationService: throwingNotifService,
+          clearLocalState: () async {
+            clearLocalStateLog.add('clearLocalState');
+          },
+        );
+
+        final ok = await viewModel.deleteAccount();
+
+        expect(ok, isTrue, reason: 'server deletion already succeeded');
+        expect(accountRepo.calls, ['deleteAccount', 'signOutDevice']);
+        expect(clearLocalStateLog, ['clearLocalState']);
+      },
+    );
+  });
+
+  group('SettingsViewModel — RGPD exportMyData', () {
+    late MockAccountRepository accountRepo;
+    late SettingsViewModel viewModel;
+
+    setUp(() {
+      resetMockDatabase();
+      accountRepo = MockAccountRepository();
+      viewModel = SettingsViewModel(
+        kennelRepository: MockKennelRepository(),
+        settingsRepository: MockSettingsRepository(),
+        accountRepository: accountRepo,
+        notificationService: MockNotificationService(),
+        clearLocalState: () async {},
+      );
+    });
+
+    test('on success: returns the payload and sets success state', () async {
+      final export = await viewModel.exportMyData();
+
+      expect(export, isNotNull);
+      expect(viewModel.state, OperationState.success);
+      expect(accountRepo.calls, ['exportMyData']);
+    });
+
+    test(
+      'on failure: returns null, errorMessage set, no success state',
+      () async {
+        accountRepo.exportMyDataError = const ServerpodClientException(
+          'boom',
+          -1,
+        );
+
+        final export = await viewModel.exportMyData();
+
+        expect(export, isNull);
+        expect(viewModel.state, OperationState.error);
+        expect(viewModel.errorMessage, isNotNull);
+      },
+    );
+  });
+}
+
+/// NotificationService double whose `cancelAll` always throws — exercises
+/// the best-effort cleanup path: a failing cancelAll must NOT undo a
+/// successful server deletion.
+class _ThrowingNotificationService extends MockNotificationService {
+  @override
+  Future<void> cancelAll() async {
+    throw StateError('plugin failure');
+  }
 }

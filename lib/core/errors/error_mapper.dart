@@ -45,6 +45,10 @@ String mapExceptionToMessage(Object error) {
   // message verbatim (the user's premiumUntil is left untouched on the server,
   // but the purchase/restore flow could not confirm the new state).
   if (error is PremiumSyncFailedException) return error.message;
+  // F10-B: RGPD account deletion failure surfaces its server-authored message
+  // verbatim. The transaction is atomic, so a failure means nothing was
+  // deleted — the user can retry safely.
+  if (error is AccountDeletionException) return error.message;
 
   // --- Transport / HTTP layer ------------------------------------------------
   if (error is ServerpodClientException) {

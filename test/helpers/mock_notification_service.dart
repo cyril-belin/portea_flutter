@@ -21,6 +21,9 @@ class MockNotificationService implements INotificationService {
   /// Calls to [cancelReminder], in order.
   final List<int> cancelled = [];
 
+  /// Number of calls to [cancelAll] (RGPD account deletion flow).
+  int cancelAllCalls = 0;
+
   bool permissionGranted = true;
   int _initializeCalls = 0;
   int get initializeCalls => _initializeCalls;
@@ -57,6 +60,11 @@ class MockNotificationService implements INotificationService {
   }
 
   @override
+  Future<void> cancelAll() async {
+    cancelAllCalls++;
+  }
+
+  @override
   String handleNotificationPayload(String? payload) =>
       parseNotificationPayload(payload);
 
@@ -68,6 +76,7 @@ class MockNotificationService implements INotificationService {
   void reset() {
     scheduled.clear();
     cancelled.clear();
+    cancelAllCalls = 0;
     _initializeCalls = 0;
   }
 }

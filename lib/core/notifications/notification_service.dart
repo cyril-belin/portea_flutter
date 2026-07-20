@@ -176,6 +176,15 @@ class NotificationService implements INotificationService {
   }
 
   @override
+  Future<void> cancelAll() async {
+    // No initialize() guard here: cancelAll runs after account deletion,
+    // when the plugin is already initialized (it was at app startup in
+    // main()). A pristine state is the goal — every pending reminder for
+    // the now-deleted kennel must disappear.
+    await _plugin.cancelAll();
+  }
+
+  @override
   String handleNotificationPayload(String? payload) =>
       parseNotificationPayload(payload);
 }

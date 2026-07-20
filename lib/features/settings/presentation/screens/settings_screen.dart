@@ -6,6 +6,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../view_models/settings_view_model.dart';
 import '../../../dashboard/presentation/view_models/dashboard_view_model.dart';
+import '../../domain/services/account_data_exporter.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -319,7 +320,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 24),
 
-        // Section 3: Actions
+        // Section 3: RGPD — data portability (article 20) + erasure (article 17).
+        // Both actions are LEGAL and IRREVERSIBLE — no fake success message is
+        // shown until the server has confirmed the operation (verdict §2.2).
         Text('Données & RGPD', style: AppTextStyles.sectionTitle),
         const SizedBox(height: 8),
         Card(
@@ -331,13 +334,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
                 title: const Text('Exporter mes données'),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Données exportées au format JSON'),
-                    ),
-                  );
-                },
+                subtitle: const Text(
+                  'Téléchargez un fichier JSON de toutes vos données.',
+                ),
+                onTap: viewModel.isBusy
+                    ? null
+                    : () => _exportMyData(context, viewModel),
               ),
               const Divider(height: 1),
               ListTile(
@@ -349,37 +351,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   'Supprimer mon compte',
                   style: TextStyle(color: AppColors.error),
                 ),
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Supprimer le compte ?'),
-                      content: const Text(
-                        'Cette action est irréversible. Toutes vos portées et reproducteurs seront effacés définitivement.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Annuler'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Compte supprimé'),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Supprimer',
-                            style: TextStyle(color: AppColors.error),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                subtitle: const Text(
+                  'Action irréversible. Toutes vos données seront définitivement effacées.',
+                ),
+                onTap: viewModel.isBusy
+                    ? null
+                    : () => _confirmDeleteAccount(context, viewModel),
               ),
             ],
           ),
@@ -434,5 +411,194 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  /// RGPD export flow (article 20 — data portability).
+  ///
+  /// Calls the server, then hands the JSON payload to the OS share sheet.
+  /// Success is surfaced ONLY AFTER the share sheet has been invoked — no
+  /// fake "Données exportées" message before the server has actually
+  /// returned the data (verdict §2.2).
+  Future<void> _exportMyData(
+    BuildContext context,
+    SettingsViewModel viewModel,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final export = await viewModel.exportMyData();
+    if (!mounted) return;
+
+    if (export == null) {
+      // Failure: the VM has populated errorMessage. No success UI.
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            viewModel.errorMessage ?? 'Une erreur est survenue.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Hand the JSON to the OS share sheet. The success message is shown
+    // only after this call returns — we know the file was built and the
+    // sheet was invoked. (We cannot guarantee the user completed the share,
+    // but that is the OS's responsibility, not ours.)
+    try {
+      await AccountDataExporter().exportAndShare(export);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Données exportées.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            "L'export a été préparé mais le partage a échoué. Réessayez.",
+          ),
+        ),
+      );
+    }
+  }
+
+  /// RGPD account deletion flow (article 17 — right to erasure).
+  ///
+  /// Two-step confirmation: dialog 1 explains what will be destroyed and
+  /// that the action is irreversible; dialog 2 requires the user to type
+  /// "SUPPRIMER" verbatim — intentional friction on a legal, irreversible
+  /// action. Only on that explicit confirmation does the server call run.
+  ///
+  /// The server call is the only source of truth. No "Compte supprimé"
+  /// message is shown before it succeeds — on failure the user stays
+  /// signed in and the VM's errorMessage is surfaced.
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    SettingsViewModel viewModel,
+  ) async {
+    // Capture context-dependent singletons BEFORE the first await. After
+    // the awaits below, `context` may be unmounted even though `mounted`
+    // was checked — the lint is right to flag this, and the captures
+    // (ScaffoldMessenger/GoRouter) stay valid across the async gap because
+    // they are framework singletons looked up from the still-mounted tree.
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer votre compte ?'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette action est irréversible. Les éléments suivants seront '
+              'définitivement effacés :',
+            ),
+            SizedBox(height: 12),
+            Text(
+              '• Votre élevage et ses informations\n'
+              '• Tous les reproducteurs\n'
+              '• Toutes les portées et chiots\n'
+              '• L\'historique des pesées et soins\n'
+              '• Les attestations de cession émises',
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Votre abonnement Premium, s\'il est actif, doit être résilié '
+              'séparément depuis les réglages de l\'App Store ou du Google '
+              'Play — nous ne pouvons pas le faire pour vous.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              foregroundColor: AppColors.error,
+            ),
+            child: const Text('Continuer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    // Step 2 — type-to-confirm. The friction is intentional: this is a
+    // legal, irreversible action and a misclick must not destroy data.
+    // The `context` here is the StatefulWidget's context, re-checked by
+    // the `mounted` guard above. The lint can't track that guarantee
+    // statically, so we silence it on this single call site.
+    final typed = await showDialog<String>(
+      // ignore: use_build_context_synchronously
+      context: context,
+      builder: (dialogContext) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Confirmation finale'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pour confirmer, saisissez exactement le mot '
+                '« SUPPRIMER » ci-dessous :',
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autocorrect: false,
+                enableSuggestions: false,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'SUPPRIMER',
+                ),
+                onSubmitted: (value) => Navigator.pop(dialogContext, value),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, null),
+              child: const Text('Annuler'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (typed != 'SUPPRIMER') return;
+    if (!mounted) return;
+
+    // The server call — the only source of truth. No UI optimism here.
+    // `messenger` and `router` were captured before the awaits above.
+    final ok = await viewModel.deleteAccount();
+    if (!mounted) return;
+
+    if (!ok) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            viewModel.errorMessage ??
+                'La suppression a échoué. Vos données sont intactes — réessayez.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Success — the server confirmed. CancelAll + clearLocalState +
+    // signOutDevice have run inside the VM. Navigate to the welcome screen
+    // with a clean route stack (no /settings, /dashboard, etc. lingering
+    // above a deleted session).
+    router.go('/onboarding/welcome');
   }
 }

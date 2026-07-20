@@ -7,6 +7,7 @@ import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/routing/app_router.dart';
@@ -33,6 +34,8 @@ import 'features/settings/domain/repositories/i_settings_repository.dart';
 import 'features/settings/data/repositories/serverpod_settings_repository.dart';
 import 'features/settings/domain/repositories/i_document_repository.dart';
 import 'features/settings/data/repositories/serverpod_document_repository.dart';
+import 'features/settings/domain/repositories/i_account_repository.dart';
+import 'features/settings/data/repositories/serverpod_account_repository.dart';
 
 // Import view models
 import 'features/onboarding/presentation/view_models/onboarding_view_model.dart';
@@ -86,6 +89,7 @@ void main() async {
   final careRepository = ServerpodCareRepository(client);
   final settingsRepository = ServerpodSettingsRepository(client);
   final documentRepository = ServerpodDocumentRepository(client);
+  final accountRepository = ServerpodAccountRepository(client);
 
   // PremiumService: wraps RevenueCat and the server sync. The server is the
   // single authority for Kennel.premiumUntil; this service only triggers
@@ -138,6 +142,7 @@ void main() async {
         Provider<ICareRepository>.value(value: careRepository),
         Provider<ISettingsRepository>.value(value: settingsRepository),
         Provider<IDocumentRepository>.value(value: documentRepository),
+        Provider<IAccountRepository>.value(value: accountRepository),
 
         // Core services. INotificationService is what view models depend on
         // (testable, mockable); NotificationService stays available for the few
@@ -316,20 +321,38 @@ void main() async {
                 notificationService: context.read<INotificationService>(),
               ),
         ),
-        ChangeNotifierProxyProvider2<
+        ChangeNotifierProxyProvider4<
           IKennelRepository,
           ISettingsRepository,
+          IAccountRepository,
+          INotificationService,
           SettingsViewModel
         >(
           create: (context) => SettingsViewModel(
             kennelRepository: context.read<IKennelRepository>(),
             settingsRepository: context.read<ISettingsRepository>(),
+            accountRepository: context.read<IAccountRepository>(),
+            notificationService: context.read<INotificationService>(),
+            // Wipes SharedPreferences on account deletion. The onboarding
+            // flag, theme, anything cached — all local data tied to the
+            // now-deleted user. Verdict §4.5: without this the next user
+            // on the device inherits the previous one's onboarding state.
+            clearLocalState: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+            },
           )..loadSettings(),
-          update: (context, kennel, settings, prev) =>
+          update: (context, kennel, settings, account, notif, prev) =>
               prev ??
                     SettingsViewModel(
                       kennelRepository: kennel,
                       settingsRepository: settings,
+                      accountRepository: account,
+                      notificationService: notif,
+                      clearLocalState: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
+                      },
                     )
                 ..loadSettings(),
         ),

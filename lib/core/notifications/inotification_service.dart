@@ -58,6 +58,13 @@ abstract class INotificationService {
   /// registration (F07 rule 4: no cross-cancellation).
   Future<void> cancelReminder(int notificationId);
 
+  /// Cancels EVERY pending reminder on the device. Used EXCLUSIVELY by the
+  /// RGPD account deletion flow (F10-B): a deleted account has no living
+  /// care entries, so any reminder still scheduled would ring for a kennel
+  /// that no longer exists. There is no other legitimate caller — per-entry
+  /// cancellation goes through [cancelReminder].
+  Future<void> cancelAll();
+
   /// Parses a notification [payload] into a go_router route.
   ///
   /// - `/puppies/<id>` — individual care (puppy file).
