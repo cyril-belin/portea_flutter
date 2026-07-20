@@ -41,6 +41,10 @@ String mapExceptionToMessage(Object error) {
   if (error is InvalidKennelInputException) return error.message;
   if (error is IncompleteCessionDataException) return error.message;
   // NOTE: ActiveLitterLimitException deliberately NOT handled here.
+  // F10-A: server-reported premium sync failure surfaces its server-authored
+  // message verbatim (the user's premiumUntil is left untouched on the server,
+  // but the purchase/restore flow could not confirm the new state).
+  if (error is PremiumSyncFailedException) return error.message;
 
   // --- Transport / HTTP layer ------------------------------------------------
   if (error is ServerpodClientException) {

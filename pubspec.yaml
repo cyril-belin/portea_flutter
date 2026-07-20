@@ -43,6 +43,7 @@ dependencies:
   fl_chart: ^1.2.0
   pdf: ^3.13.0
   printing: ^5.15.0
+  purchases_flutter: ^8.0.0
 
 dev_dependencies:
   # Used for agents to drive the app through the Dart MCP

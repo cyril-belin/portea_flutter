@@ -22,5 +22,6 @@
 - F04 chiots : backend puppy + ServerpodPuppyRepository à créer. Bug actuel : createPuppiesBatch fait toujours des add (jamais d'update) → duplication à chaque sauvegarde ; loadLitterPuppies pré-remplit 3 chiots mockers ; rien n'est persisté (mock en mémoire).
 - Lenteur perceptible sur mobile (à profiler : startup, appels serveur, rebuilds).
 - Date picker de date de naissance en anglais (i18n / localization FR à configurer).
-- Suppression de compte : KO (SnackBar seul, pas d'action réelle).
+- Suppression de compte : KO (SnackBar seul, pas d'action réelle). → **F10-B** (RGPD : suppression compte + export + anonymisation, hors F10-A).
 - « Ajouter mes reproducteurs d'abord » persiste sur l'accueil après ajout de reproducteurs (cohérence d'état Dashboard à revoir).
+- **Entitlement lifetime (accès à vie offert)** : F10-A traite un `expiration_date` nul côté RevenueCat comme non-premium (règle V1 documentée dans `PremiumSyncService`). Revoir cette règle quand le plan d'acquisition introduit un entitlement à vie — il faudra distinguer « pas de date = illimité premium » de « pas de date = pas d'abo ».

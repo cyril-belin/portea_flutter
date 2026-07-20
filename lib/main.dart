@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:portea_client/portea_client.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:serverpod_flutter/serverpod_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
@@ -10,6 +13,8 @@ import 'core/routing/app_router.dart';
 import 'core/auth/authenticated_listenable.dart';
 import 'core/notifications/inotification_service.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/services/premium/premium_service.dart';
+import 'core/services/premium/revenuecat_premium_service.dart';
 
 // Import repositories
 import 'features/onboarding/domain/repositories/i_kennel_repository.dart';
@@ -25,7 +30,7 @@ import 'features/puppies/data/repositories/serverpod_weighing_repository.dart';
 import 'features/puppies/domain/repositories/i_care_repository.dart';
 import 'features/puppies/data/repositories/serverpod_care_repository.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
-import 'features/settings/data/repositories/mock_settings_repository.dart';
+import 'features/settings/data/repositories/serverpod_settings_repository.dart';
 import 'features/settings/domain/repositories/i_document_repository.dart';
 import 'features/settings/data/repositories/serverpod_document_repository.dart';
 
@@ -68,6 +73,10 @@ void main() async {
     client.auth.authInfoListenable,
   );
 
+  // RevenueCat public API keys (platform-specific) read from assets/config.json.
+  // The secret server key lives only on the server (passwords.yaml).
+  final premiumConfig = await _loadPremiumConfig();
+
   // Create core repositories
   final kennelRepository = ServerpodKennelRepository(client);
   final breederRepository = ServerpodBreederRepository(client);
@@ -75,8 +84,16 @@ void main() async {
   final puppyRepository = ServerpodPuppyRepository(client);
   final weighingRepository = ServerpodWeighingRepository(client);
   final careRepository = ServerpodCareRepository(client);
-  final settingsRepository = MockSettingsRepository();
+  final settingsRepository = ServerpodSettingsRepository(client);
   final documentRepository = ServerpodDocumentRepository(client);
+
+  // PremiumService: wraps RevenueCat and the server sync. The server is the
+  // single authority for Kennel.premiumUntil; this service only triggers
+  // changes (purchase / restore) and reloads the state from the server.
+  final premiumService = RevenueCatPremiumService(
+    client: client,
+    config: premiumConfig,
+  );
 
   // Core services
   final notificationService = NotificationService();
@@ -105,6 +122,7 @@ void main() async {
     litterRepository: litterRepository,
     breederRepository: breederRepository,
     notificationService: notificationService,
+    premiumService: premiumService,
     authListenable: authListenable,
   );
 
@@ -126,6 +144,11 @@ void main() async {
         // widgets that read the concrete type (e.g. onboarding screen).
         Provider<INotificationService>.value(value: notificationService),
         Provider<NotificationService>.value(value: notificationService),
+
+        // PremiumService: authority stays on the server. Listened to by the
+        // premium screen (purchase/restore flow) and by the onboarding VM
+        // (initialization on login).
+        ChangeNotifierProvider<PremiumService>.value(value: premiumService),
 
         // View models injection
         ChangeNotifierProvider<OnboardingViewModel>.value(
@@ -352,6 +375,27 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+/// Reads `assets/config.json` for the RevenueCat public API keys (iOS/Android).
+/// The secret server key is NEVER read here — it lives only on the server.
+///
+/// Missing keys degrade gracefully: the `PremiumService` detects an empty key
+/// and shows "offres indisponibles" instead of crashing.
+Future<PremiumConfig> _loadPremiumConfig() async {
+  try {
+    final raw = await rootBundle.loadString('assets/config.json');
+    final decoded = jsonDecode(raw);
+    if (decoded is Map<String, dynamic>) {
+      return PremiumConfig(
+        revenueCatApiKeyIos: decoded['revenueCatApiKeyIos'] as String?,
+        revenueCatApiKeyAndroid: decoded['revenueCatApiKeyAndroid'] as String?,
+      );
+    }
+  } catch (_) {
+    // Best-effort: premium simply stays unavailable if the config is missing.
+  }
+  return const PremiumConfig();
 }
 
 class MyApp extends StatefulWidget {

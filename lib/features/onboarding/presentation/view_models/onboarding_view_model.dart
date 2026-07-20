@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/errors/error_mapper.dart';
 import '../../../../core/errors/operation_state.dart';
 import '../../../../core/notifications/inotification_service.dart';
+import '../../../../core/services/premium/premium_service.dart';
 import '../../../breeders/domain/repositories/i_breeder_repository.dart';
 import '../../../litters/domain/repositories/i_litter_repository.dart';
 import '../../../puppies/domain/repositories/i_care_repository.dart';
@@ -29,6 +30,7 @@ class OnboardingViewModel extends ChangeNotifier {
     ILitterRepository? litterRepository,
     IBreederRepository? breederRepository,
     INotificationService? notificationService,
+    PremiumService? premiumService,
     ValueListenable<bool>? authListenable,
   }) : _kennelRepository = kennelRepository,
        _careRepository = careRepository,
@@ -36,6 +38,7 @@ class OnboardingViewModel extends ChangeNotifier {
        _litterRepository = litterRepository,
        _breederRepository = breederRepository,
        _notificationService = notificationService,
+       _premiumService = premiumService,
        _authListenable = authListenable {
     _authListenable?.addListener(_onAuthChanged);
     if (_authListenable?.value ?? false) {
@@ -49,6 +52,7 @@ class OnboardingViewModel extends ChangeNotifier {
   final ILitterRepository? _litterRepository;
   final IBreederRepository? _breederRepository;
   final INotificationService? _notificationService;
+  final PremiumService? _premiumService;
   final ValueListenable<bool>? _authListenable;
 
   static const _onboardingCompletedKey = 'onboarding_completed';
@@ -137,6 +141,20 @@ class OnboardingViewModel extends ChangeNotifier {
       // auth flow.
       if (_hasKennel && _isOnboardingCompleted) {
         await _rescheduleReminders();
+      }
+      // F10-A: initialize RevenueCat with the authenticated user id (same hook
+      // point as the kennel resolution and reminder rescheduling). The user id
+      // is the kennel's userId (the Serverpod authUserId). Best-effort — a
+      // failure here never blocks the auth flow; premium simply stays
+      // unavailable until the next attempt.
+      final premiumService = _premiumService;
+      final userId = _kennel?.userId;
+      if (premiumService != null && userId != null) {
+        try {
+          await premiumService.initialize(appUserId: userId.toString());
+        } catch (_) {
+          // Non-fatal: premium features degrade to "offres indisponibles".
+        }
       }
     } catch (e) {
       _errorMessage = mapExceptionToMessage(e);
@@ -265,6 +283,17 @@ class OnboardingViewModel extends ChangeNotifier {
       // NOTE: onboarding is NOT complete here — the user must still pass the
       // notifications screen, which calls completeOnboarding().
       _state = OperationState.success;
+      // F10-A: the kennel just got created, so we now have a stable user id
+      // to hand to RevenueCat (the kennel carries the authUserId).
+      final premiumService = _premiumService;
+      final userId = _kennel?.userId;
+      if (premiumService != null && userId != null) {
+        try {
+          await premiumService.initialize(appUserId: userId.toString());
+        } catch (_) {
+          // Non-fatal.
+        }
+      }
       notifyListeners();
       return true;
     } catch (e) {

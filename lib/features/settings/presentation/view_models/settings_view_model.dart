@@ -156,22 +156,4 @@ class SettingsViewModel extends ChangeNotifier {
       return false;
     }
   }
-
-  Future<void> togglePremium(bool premium) async {
-    if (_state == OperationState.mutating) return;
-    _state = OperationState.mutating;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      await _settingsRepository.setPremium(premium);
-      _isPremium = premium;
-      _state = OperationState.success;
-    } catch (e) {
-      _errorMessage = mapExceptionToMessage(e);
-      _state = OperationState.error;
-    } finally {
-      notifyListeners();
-    }
-  }
 }

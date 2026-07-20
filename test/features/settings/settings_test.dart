@@ -16,16 +16,16 @@ void main() {
       repository = MockSettingsRepository();
     });
 
-    test('isPremium returns correct value from DB', () async {
+    test('isPremium reflects the MockDatabase premium flag', () async {
       expect(await repository.isPremium(), isFalse);
       MockDatabase.instance.premiumUser = true;
       expect(await repository.isPremium(), isTrue);
     });
 
-    test('setPremium updates value in DB', () async {
-      await repository.setPremium(true);
-      expect(MockDatabase.instance.premiumUser, isTrue);
-      expect(await repository.isPremium(), isTrue);
+    test('theme mode round-trips', () async {
+      expect(await repository.getThemeMode(), 'system');
+      await repository.setThemeMode('dark');
+      expect(await repository.getThemeMode(), 'dark');
     });
   });
 
@@ -87,16 +87,6 @@ void main() {
       expect(saved!.name, equals('Nouveau Nom'));
     });
 
-    test('togglePremium updates settings repository and local state', () async {
-      expect(viewModel.isPremium, isFalse);
-
-      await viewModel.togglePremium(true);
-      expect(viewModel.isPremium, isTrue);
-
-      final dbPremium = await settingsRepo.isPremium();
-      expect(dbPremium, isTrue);
-    });
-
     // ---- F09 prerequisite: breeder (owner) info ----
 
     test(
@@ -124,7 +114,6 @@ void main() {
         expect(viewModel.kennel!.ownerEmail, 'marie@elevage.fr');
         expect(viewModel.kennel!.siret, '12345678900012');
 
-        // Persisted in the repository.
         final saved = await kennelRepo.getKennel();
         expect(saved!.ownerName, 'Marie Dupont');
         expect(saved.siret, '12345678900012');
@@ -138,7 +127,6 @@ void main() {
         final db = MockDatabase.instance;
         await kennelRepo.createKennel(db.kennel!);
         await viewModel.loadSettings();
-        // Seed a full dossier.
         await viewModel.updateKennelOwnerInfo(
           ownerName: 'Marie',
           ownerAddress: '12 rue',
@@ -147,7 +135,6 @@ void main() {
           siret: '12345678900012',
         );
 
-        // Resubmit with everything emptied.
         final ok = await viewModel.updateKennelOwnerInfo(
           ownerName: '   ',
           ownerAddress: '',
@@ -180,7 +167,6 @@ void main() {
         expect(ok, isFalse);
         expect(viewModel.state, OperationState.error);
         expect(viewModel.errorMessage, isNotNull);
-        // Nothing persisted.
         final saved = await kennelRepo.getKennel();
         expect(saved!.ownerEmail, isNull);
       },
@@ -192,9 +178,6 @@ void main() {
         final db = MockDatabase.instance;
         await kennelRepo.createKennel(db.kennel!);
         await viewModel.loadSettings();
-        // Capture the pre-existing siret so we can assert it is preserved on
-        // refusal (rollback), rather than asserting null — the seed may carry
-        // a siret.
         final previousSiret = viewModel.kennel!.siret;
 
         final ok = await viewModel.updateKennelOwnerInfo(siret: '12345');
@@ -202,7 +185,6 @@ void main() {
         expect(ok, isFalse);
         expect(viewModel.state, OperationState.error);
         expect(viewModel.errorMessage, isNotNull);
-        // The refused edit rolls back: the row keeps its prior siret.
         expect(viewModel.kennel!.siret, equals(previousSiret));
       },
     );
@@ -258,18 +240,13 @@ void main() {
     test(
       'updateKennel failure rolls back local kennel and surfaces error',
       () async {
-        // Seed an initial kennel via a successful load.
         final db = MockDatabase.instance;
         await kennelRepo.createKennel(db.kennel!);
         await viewModel.loadSettings();
         final originalName = viewModel.kennel!.name;
         expect(originalName, isNotEmpty);
 
-        // The update fails: optimistic change must be reverted.
-        kennelRepo.throwOnNext = const ServerpodClientException(
-          'boom',
-          -1,
-        );
+        kennelRepo.throwOnNext = const ServerpodClientException('boom', -1);
         final updated = Kennel(
           name: 'Devrait être rejeté',
           species: 'cat',
@@ -284,6 +261,73 @@ void main() {
           viewModel.kennel!.name,
           equals(originalName),
           reason: 'optimistic mutation must be rolled back on failure',
+        );
+      },
+    );
+  });
+
+  // ---- F10-A: premium invalidation circuit ----
+  // After a successful purchase/restore, the 5 view models that gate on
+  // premium must reflect the new server-authoritative state. The production
+  // path: PremiumService → server syncPremiumStatus → Kennel.premiumUntil →
+  // each VM's load*() re-reads isPremium(). Here we pin that contract: when
+  // the underlying status changes (server-side), a load*() picks it up.
+  group('SettingsViewModel — premium invalidation circuit (F10-A)', () {
+    late MockKennelRepository kennelRepo;
+    late MockSettingsRepository settingsRepo;
+    late SettingsViewModel viewModel;
+
+    setUp(() {
+      resetMockDatabase();
+      kennelRepo = MockKennelRepository();
+      settingsRepo = MockSettingsRepository();
+      viewModel = SettingsViewModel(
+        kennelRepository: kennelRepo,
+        settingsRepository: settingsRepo,
+      );
+    });
+
+    test(
+      'after a premium change, reload picks up the new status without a '
+      'restart',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        await viewModel.loadSettings();
+        expect(viewModel.isPremium, isFalse);
+
+        // Simulate the server-authoritative change (a sync ran, premiumUntil
+        // is now in the future). isPremium() now returns true.
+        db.premiumUser = true;
+
+        // The screen's refresh path calls loadSettings() after a purchase.
+        await viewModel.loadSettings();
+
+        expect(
+          viewModel.isPremium,
+          isTrue,
+          reason: 'loadSettings must re-read the server-authoritative status',
+        );
+      },
+    );
+
+    test(
+      'premium status revocation (refunded/expired) is picked up on reload',
+      () async {
+        final db = MockDatabase.instance;
+        await kennelRepo.createKennel(db.kennel!);
+        db.premiumUser = true;
+        await viewModel.loadSettings();
+        expect(viewModel.isPremium, isTrue);
+
+        // A later sync nulls out premiumUntil (refund / expiry).
+        db.premiumUser = false;
+        await viewModel.loadSettings();
+
+        expect(
+          viewModel.isPremium,
+          isFalse,
+          reason: 'revocation on the server must propagate on reload',
         );
       },
     );
